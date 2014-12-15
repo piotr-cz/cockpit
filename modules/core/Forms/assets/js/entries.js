@@ -4,16 +4,46 @@
 
         $scope.form = FORMDATA || {};
 
-        $http.post(App.route("/api/forms/entries"), {
+        // TODO: get from global config somehow
+        var entriesPerPage = 10;
 
-            "form": angular.copy($scope.form),
-            "sort": {"created":-1}
+        var pagesCount = Math.ceil(FORMDATA.count / entriesPerPage);
 
-        }, {responseType:"json"}).success(function(data){
+        $scope.pagination = {
+            current: null,
+            pages: []
+        };
 
-            if (data) $scope.entries = data;
+        // Build range for ngRepeat
+        // TODO: Create directive as in here: http://stackoverflow.com/a/11878038/1012616
+        for (var i = 1; i <= pagesCount; i++) {
+            $scope.pagination.pages.push(i);
+        }
 
-        }).error(App.module.callbacks.error.http);
+        // Load results for page
+        // TODO: Probably move to App.js
+        $scope.goToPage = function(index) {
+
+            if (index === $scope.pagination.current) return;
+
+            $http.post(App.route("/api/forms/entries"), {
+
+                "form": angular.copy($scope.form),
+                "sort": {"created": -1},
+                "limit": entriesPerPage,
+                "skip": entriesPerPage * (index - 1)
+
+            }, {responseType:"json"}).success(function(data){
+
+                if (data) $scope.entries = data;
+
+                $scope.pagination.current = index;
+
+            }).error(App.module.callbacks.error.http);
+        }
+
+        // Get first page
+        $scope.goToPage(1);
 
         $scope.remove = function(index, entryId){
 
