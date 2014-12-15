@@ -76,6 +76,17 @@
                             </td>
                         </tr>
                     </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4">
+                                <ul class="uk-pagination">
+                                    <li data-ng-repeat="pageNo in pagination.pages" data-ng-class="{ 'uk-active': pageNo == $parent.pagination.current }" style="cursor: pointer">
+                                        <span data-ng-click="goToPage(pageNo)">@@ pageNo @@</span>
+                                    </li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>
 
                 <div class="uk-margin-top">
