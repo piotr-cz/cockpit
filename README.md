@@ -1,3 +1,40 @@
+# Cockpit Next - MySQL driver version
+
+## Requirements
+- PDO extension (`pdo`, & `pdo_mysql` & `json`)
+- MySQL 5.7.9+ for JSON functions support
+
+
+## Things that don't work
+- 
+
+
+## Setup
+
+Configure connection in `config/config.php`:
+
+```php
+return [
+    'database' => [
+        'server' => 'mysqljson',
+        // Connection options
+        'options' => [
+            'connection' => 'mysql',
+            'host' => 'localhost',
+            'db' => 'DATABASE_NAME',
+            'charset' => 'UTF8',
+            'username' => 'USER',
+            'password' => 'PASSWORD',
+        ],
+        // PDO Attributes
+        // see https://www.php.net/manual/en/pdo.setattribute.php
+        // see https://www.php.net/manual/en/ref.pdo-mysql.php
+        'driverOptions' => [],
+    ],
+];
+```
+
+~~~
 # Cockpit Next
 
 [![Backers on Open Collective](https://opencollective.com/cockpit/backers/badge.svg)](#backers) [![Sponsors on Open Collective](https://opencollective.com/cockpit/sponsors/badge.svg)](#sponsors)

@@ -29,6 +29,11 @@ class Client {
             $this->driver = new MongoLite($server, $options);
             $this->type = 'mongolite';
         }
+
+        if ($server === 'mysqljson') {
+            $this->driver = new \MysqlJson\Driver($options, $driverOptions);
+            $this->type = 'mysqljson'
+        }
     }
 
     public function dropCollection($name, $db = null) {
