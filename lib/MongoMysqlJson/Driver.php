@@ -1,28 +1,22 @@
 <?php
-namespace MySqlJson;
+namespace MongoMysqlJson;
 
 use PDO;
 use PDOException;
 
+use InvalidArgumentException;
+
 use \MongoHybrid\ResultSet;
 
-use \MySqlJson\Collection;
+use \MongoMysqlJson\ {
+    DriverException,
+    Collection
+};
 
 // Note: Cannot use function
 // use function \MongoLite\Databse\createMongoDbLikeId;
 
 /**
- * TODO: When to create tables?
- * - installation script doesn't check if db is installed,
- * - adding new collection in admin doesn't trigger storage stuff
- *
- * MongoLite creates databases on fly on every operation via
- *   MongoHybrid::getCollection ->
- *     MongoLite\Client::selectCollection -> 
- *       MongoLite\Database::selectCollection ->
- *         MongoLite\Database::createCollection
- *
- * 
  * See MongoHybry\MongoLite
  * @see https://scotch.io/tutorials/working-with-json-in-mysql
  * docs https://dev.mysql.com/doc/refman/5.7/en/json-function-reference.html
@@ -36,8 +30,11 @@ use \MySqlJson\Collection;
  */
 class Driver
 {
+    /** @var string - Min database version */
+    protected const DB_MIN_SERVER_VERSION = '5.7.9';
+
     /** @type \PDO - Database connection */
-    protected $pdo;
+    protected $connection;
 
     /** @var array - Collections cache */
     protected $collections = [];
@@ -45,8 +42,13 @@ class Driver
     /**
      * @param array $options {
      *   @var string $connection
+     *   @var string $host
+     *   @var string $db
+     *   @var string $username
+     *   @var string $password
      * }
      * @param array $driverOptions
+     * @throws \MysqlJson\DriverException
      */
     public function __construct(array $options, array $driverOptions = [])
     {
@@ -63,27 +65,62 @@ class Driver
         ];
 
         try {
-            $this->pdo = new PDO(
+            $this->connection = new PDO(
                 $dsn,
                 $options['username'],
                 $options['password'],
                 $driverOptions
             );
-        } catch (PDOException $e) {
-            exit(sprintf('PDO connection failed: %s', $e->getMessage()));
+        // Access denied for user (1045), Unknown database (1049), invalid host
+        } catch (PDOException $pdoException) {
+            throw new DriverException(sprintf('PDO connection failed: %s', $pdoException->getMessage()), 0, $pdoException);
         }
+
+        $this->assertIsSupported();
     }
 
-    public function getCollection(string $name, $db = null): Collection
+    /**
+     * Assert features are supported by database
+     * @throws \MysqlJson\DriverException
+     */
+    public function assertIsSupported(): void
     {
-        if (!isset($this->collections[$name])) {
-            $this->collections[$name] = new Collection($name, $this->pdo);
+        // Check for PDO Driver
+        if (!in_array('mysql', PDO::getAvailableDrivers())) {
+            throw new DriverException('pdo_mysql extension not loaded');
         }
 
-        return $this->collections[$name];
+        // Check version
+        $currentMysqlVersion = $this->connection->getAttribute(PDO::ATTR_SERVER_VERSION);
+        // $currentMysqlVersion = $this->connection->query('SELECT VERSION()')->fetch(PDO::FETCH_COLUMN);
+
+        if (!version_compare($currentMysqlVersion, static::DB_MIN_SERVER_VERSION, '>=')) {
+            throw new DriverException(vsprintf('Driver requires MySQL version >= %s, got %s', [
+                static::DB_MIN_SERVER_VERSION,
+                $currentMysqlVersion
+            ]));
+        }
+
+        return;
     }
 
-    public function dropCollection(string $name, $db = null)
+    /**
+     * @inheritdoc
+     * Doesn't separate collection and databse
+     */
+    public function getCollection(string $name, string $db = null): Collection
+    {
+        // Using one database
+        $collectionName = static::getCollectionName($name, $db);
+
+        if (!isset($this->collections[$collectionName])) {
+            $this->collections[$collectionName] = new Collection($collectionName, $this->connection);
+        }
+
+        return $this->collections[$collectionName];
+    }
+
+    public function dropCollection(string $name, string $db = null)
     {
         die('dropCollection');
     }
@@ -92,8 +129,8 @@ class Driver
      * Find collection items
      * @param string $collection - ie. collections/performers5d417617d3b77
      * @param array $options {
-     *   @var array|filter $filter - Filter results by
-     *   @var ?|null $fields - ???
+     *   @var array|callable|null $filter - Filter results by (criteria)
+     *   @var array|null $fields - Projection
      *   @var int $limit - Limit
      *   @var array $sort - Sort by keys
      *   @var ? $skip
@@ -158,7 +195,7 @@ class Driver
             {$sqlLimit}
 SQL;
 
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->connection->prepare($sql);
         $stmt->execute();
 
         $results = $stmt->fetchAll();
@@ -217,12 +254,12 @@ SQL;
                 )
 SQL;
 
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->connection->prepare($sql);
         $stmt->execute([
             ':data' => static::jsonEncode($data)
         ]);
 
-        return true; // (int) $this->pdo->lastInsertId();
+        return true;
     }
 
     /**
@@ -283,12 +320,15 @@ SQL;
                 JSON_EXTRACT(`c`.`document`, '$._id') = {$id}
 SQL;
 
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->connection->prepare($sql);
         $stmt->execute();
 
         return true;
     }
 
+    /**
+     * Not used directly
+     */
     public function update($collection, $criteria, $data)
     {
         die('update');
@@ -315,7 +355,7 @@ SQL;
                 JSON_EXTRACT(`c`.`document`, '$._id') = {$id}
 SQL;
 
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->connection->prepare($sql);
         $stmt->execute();
 
         /*
@@ -331,7 +371,7 @@ SQL;
                 JSON_EXTRACT(`r`.`document`, '$._oid') = {$id}
 SQL;
 
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->connection->prepare($sql);
         $stmt->execute();
         */
 
@@ -346,9 +386,23 @@ SQL;
         return count($results);
     }
 
-    protected function createSchema()
+    /**
+     * Get fully qualified collection name (db / name)
+     */
+    protected static function getCollectionName(string $name, string $db = null): string
     {
-        $tables = [
+        return $db
+            ? sprintf('%s/%s', $db, $name)
+            : $name;
+    }
+
+    /**
+     * Not used, tables created on the fly
+     * May decide to run on install
+     */
+    protected function createCockpitSchema(): void
+    {
+        $cockpitTables = [
             'accounts',
             'assets',
             'assets_folders',
@@ -357,19 +411,15 @@ SQL;
             'webhooks',
         ];
 
-        $sql = <<<SQL
-            CREATE TABLE `cockpit/%s` (
-                `id` INT(11) NOT NULL AUTO_INCREMENT,
-                `document` JSON DEFAULT NULL,
-                PRIMARY KEY (`id`)
-            )
-SQL;
+        foreach ($cockpitTables as $name) {
+            $this->getCollection(sprintf('cockpit/%s', $name));
+        }
 
-        // TODO
+        return;
     }
 
     /**
-     * Encode
+     * Encode value helper
      */
     protected static function jsonEncode($value): string
     {
@@ -378,7 +428,7 @@ SQL;
     }
 
     /**
-     * Decode to array
+     * Decode value helper
      */
     protected static function jsonDecode(string $string)
     {
@@ -398,7 +448,7 @@ SQL;
 
         // Cannot work with non-arrays yet
         if (!is_array($value)) {
-            throw new \InvalidArgumentException('Cannot serialize value');
+            throw new InvalidArgumentException('Cannot serialize value');
         }
 
         $jsonValues = [];
@@ -447,7 +497,7 @@ SQL;
             ]);
         } else {
             $isSequentialArray = $value === array_values($value);
-            
+
             // TODO: Nesting
 
             // V2
@@ -474,7 +524,7 @@ SQL;
                     implode(', ', $subValues)
                 ]);
             }
- 
+
 
             /*
             // V1

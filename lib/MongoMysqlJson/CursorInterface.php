@@ -2,13 +2,14 @@
 /**
  * Docblocks from MongoLite\Cursor
  */
+namespace MongoMysqlJson;
 
-use Iterator
+use Iterator;
 
-interface CursorInterface implements Iterator
+interface CursorInterface extends Iterator
 {
     public function __construct(CollectionInterface $collection, string $criteria, iterable $projection = null);
-  
+
     /**
      * Documents count
      */
@@ -26,7 +27,7 @@ interface CursorInterface implements Iterator
     public function each(callable $callable): CursorInterface;
 
     public function toArray(): array;
-    
+
     //// Iterator implementations
     // rewind, current, key, next, valid
 }

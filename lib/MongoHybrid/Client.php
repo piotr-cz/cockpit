@@ -31,8 +31,8 @@ class Client {
         }
 
         if ($server === 'mysqljson') {
-            $this->driver = new \MysqlJson\Driver($options, $driverOptions);
-            $this->type = 'mysqljson'
+            $this->driver = new \MongoMysqlJson\Driver($options, $driverOptions);
+            $this->type = 'mongomysqljson';
         }
     }
 
@@ -40,7 +40,7 @@ class Client {
         return $this->driver->getCollection($name, $db)->drop();
     }
 
-    public function renameCollection($newname, $db = null) {
+    public function renameCollection($name, $newname, $db = null) {
 
         return $this->driver->getCollection($name, $db)->renameCollection($newname);
     }
