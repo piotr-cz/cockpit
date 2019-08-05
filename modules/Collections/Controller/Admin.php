@@ -407,7 +407,7 @@ class Admin extends \Cockpit\AuthController {
         $this->app->trigger("collections.admin.find.before.{$collection['name']}", [&$options]);
         $entries = $this->app->module('collections')->find($collection['name'], $options);
         $this->app->trigger("collections.admin.find.after.{$collection['name']}", [&$entries, $options]);
-        
+
         $count = $this->app->module('collections')->count($collection['name'], isset($options['filter']) ? $options['filter'] : []);
         $pages = isset($options['limit']) ? ceil($count / $options['limit']) : 1;
         $page  = 1;
@@ -446,7 +446,7 @@ class Admin extends \Cockpit\AuthController {
 
     protected function _filter($filter, $collection) {
 
-        if ($this->app->storage->type == 'mongolite') {
+        if ($this->app->storage->type == 'mongolite' || $this->app->storage->type === 'mongomysqljson') {
             return $this->_filterLight($filter, $collection);
         }
 
@@ -468,7 +468,7 @@ class Admin extends \Cockpit\AuthController {
 
             if ($field['type'] != 'boolean' && in_array($field['type'], $allowedtypes)) {
                 $criteria = [];
-                $criteria[$field['name']] = ['$regex' => $filter];
+                $criteria[$field['name']] = ['$regex' => $filter, '$options' => 'i'];
                 $criterias[] = $criteria;
             }
 

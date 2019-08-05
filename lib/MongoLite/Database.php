@@ -303,7 +303,12 @@ class UtilArrayQuery {
         return \count($fn) ? \trim(\implode($concat, $fn)) : 'true';
     }
 
-
+    /**
+     * Check condition
+     * @param mixed $value - Database value
+     * @param array $condition in format $func => value
+     * @return bool
+     */
     public static function check($value, $condition) {
 
         $keys = \array_keys($condition);
@@ -320,6 +325,13 @@ class UtilArrayQuery {
         return true;
     }
 
+    /**
+     * Evaluate condition
+     * @param string $func - Function name/ Mongo operator
+     * @param mixed $a - Database value
+     * @param mixed $b - Condition value
+     * @return bool
+     */
     private static function evaluate($func, $a, $b) {
 
         $r = false;

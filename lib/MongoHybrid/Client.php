@@ -30,7 +30,7 @@ class Client {
             $this->type = 'mongolite';
         }
 
-        if ($server === 'mysqljson') {
+        if ($server === 'mongomysqljson') {
             $this->driver = new \MongoMysqlJson\Driver($options, $driverOptions);
             $this->type = 'mongomysqljson';
         }
