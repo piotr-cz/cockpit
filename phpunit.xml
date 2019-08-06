@@ -1,0 +1,11 @@
+<phpunit
+    bootstrap="tests/bootstrap.php"
+    colors="true"
+    cacheResult="false"
+>
+    <testsuites>
+        <testsuite name="database-mysql-driver">
+            <directory>tests/MongoMysqJson</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

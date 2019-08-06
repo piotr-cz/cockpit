@@ -4,7 +4,6 @@
  */
 
 use LimeExtra\App;
-use PHPMailer\PHPMailer\Exception;
 
 // Using config/config.php
 // define('COCKPIT_CONFIG_PATH', __DIIR__ . '/config/config-test.php');
