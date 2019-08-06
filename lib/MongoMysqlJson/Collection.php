@@ -176,7 +176,7 @@ SQL;
     {
         $sql = <<<SQL
 
-            DROP TABLE
+            DROP TABLE IF EXISTS
                 `{$this->id}`
 SQL;
 

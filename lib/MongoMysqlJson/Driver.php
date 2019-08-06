@@ -130,7 +130,25 @@ class Driver
 
     public function dropCollection(string $id, string $db = null)
     {
+        // TODO: remove from collections cache
         die('dropCollection');
+    }
+
+    /**
+     * Empty collection
+     */
+    public function empty(string $id, string $db = null): bool
+    {
+        $this->getCollection($id, $db);
+
+        $this->connection->query(<<<SQL
+
+            TRUNCATE
+                `{$id}`
+SQL
+        );
+
+        return true;
     }
 
     /**
@@ -141,7 +159,7 @@ class Driver
      *   @var array|null $fields - Projection
      *   @var int $limit - Limit
      *   @var array $sort - Sort by keys
-     *   @var ? $skip
+     *   @var int $skip
      *   @var bool $populate - Append objects
      * }
      * @return array|MongoHybryd\ResultSet
@@ -430,7 +448,6 @@ class Driver
 
         if (isset($options['sort'])) {
             foreach ($options['sort'] as $key => $value) {
-                // $sqlOrderBySegments[] = vsprintf("JSON_EXTRACT(`c`.`document`, '$.%s') %s", [
                 $sqlOrderBySegments[] = vsprintf("`c`.`document` -> '$.%s' %s", [
                     $key,
                     $value == 1 ? 'ASC' : 'DESC'
@@ -473,9 +490,34 @@ SQL;
         $results = $stmt->fetchAll();
 
         // Decode each document
-        $docs = array_map('static::jsonDecode', $results);
+        $items = array_map('static::jsonDecode', $results);
 
-        return new ResultSet($this, $docs);
+        // See \MongoLite\Cursor::getData
+        if (isset($options['fields'])) {
+            $exclude = [];
+            $include = [];
+
+            // Process lists
+            foreach ($options['fields'] as $key => $value) {
+                if ($value) {
+                    $include[$key] = 1;
+                } else {
+                    $exclude[$key] = 1;
+                }
+            }
+
+            // Don't remove `_id` via includes unliess it's explicitly excluded
+            if (!isset($exclude['_id'])) {
+                unset($include['_id']);
+            }
+
+            // Process items
+            foreach ($items as &$item) {
+                $item = static::processItemProjection($item, $exclude, $include);
+            }
+        }
+
+        return new ResultSet($this, $items);
     }
 
     /**
@@ -519,9 +561,7 @@ SQL;
         $sql = <<<SQL
 
             INSERT INTO
-                `{$collectionId}` (
-                    `document`
-                )
+                `{$collectionId}` (`document`)
             VALUES (
                     :data
                 )
@@ -548,8 +588,6 @@ SQL;
             return $this->insert($collectionId, $data);
         }
 
-        $itemId = static::jsonEncode($data['_id']);
-
         // Createa array of key, value segments for JSON_SET
         $sqlSetSubSegments = [];
 
@@ -564,13 +602,6 @@ SQL;
                 // continue;
             }
 
-            /*
-            $sqlSetSubSegments = array_merge(
-                $sqlSetSubSegments,
-                static::createSqlJsonSegments('$.' . $key, $value)
-            );
-            */
-
             $sqlSetSubSegments[] = vsprintf("'$.%s', %s", [
                 $key,
                 static::createSqlJsonValue($value)
@@ -579,7 +610,7 @@ SQL;
 
         $sqlSet = implode(', ', $sqlSetSubSegments);
 
-        $sql = <<<SQL
+        $stmt = $this->connection->prepare(<<<SQL
 
             UPDATE
                 `{$collectionId}` AS `c`
@@ -590,11 +621,11 @@ SQL;
             )
 
             WHERE
-                JSON_EXTRACT(`c`.`document`, '$._id') = {$itemId}
-SQL;
+                `c`.`document` -> '$._id' = :itemId
+SQL
+        );
 
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':itemId' => $data['_id']]);
 
         return true;
     }
@@ -616,37 +647,18 @@ SQL;
      */
     public function remove(string $collectionId, array $criteria): bool
     {
-        $itemId = static::jsonEncode($criteria['_id']);
-
-        $sql = <<<SQL
+        $stmt = $this->connection->prepare(<<<SQL
 
             DELETE
                 `c`
             FROM
                 `{$collectionId}` AS `c`
             WHERE
-                JSON_EXTRACT(`c`.`document`, '$._id') = {$itemId}
-SQL;
+                `c`.`document` -> '$._id' = :itemId
+SQL
+        );
 
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute();
-
-        /*
-        // Remove from revisions, this is not handled by bootstrap
-        // But it's probably a bug in Cockpit Collection module
-        $sql = <<<SQL
-
-            DELETE
-                `r`
-            FROM
-                `cockpit/revisions` AS `r`
-            WHERE
-                JSON_EXTRACT(`r`.`document`, '$._oid') = {$itemId}
-SQL;
-
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute();
-        */
+        $stmt->execute([':itemId' => $criteria['_id']]);
 
         return true;
     }
@@ -654,10 +666,12 @@ SQL;
     /**
      * @inheritdoc
      */
-    public function count(string $collectionId, array $criteria = null): int
+    public function count(string $collectionId, array $criteria = []): int
     {
         // ATM use ::find method instead of SELECT COUNT(*)
-        $results = $this->find($collectionId);
+        $results = $this->find($collectionId, [
+            'filter' => $criteria
+        ]);
 
         return count($results);
     }
@@ -758,83 +772,25 @@ SQL;
     }
 
     /**
-     * Deprecated
-     * Path, value
-     * @param string $path
-     * @param mixed $value
+     * Modify item as per projection
+     * @param array $item
+     * @param array $exclude
+     * @param array $include
      * @return array
      */
-    public static function createSqlJsonSegments(string $path = '$', $value): array
+    protected static function processItemProjection(array $item, array $exclude, array $include): array
     {
-        $segments = [];
-
-        if (!is_array($value)) {
-            // Path, value
-            $segments[] = vsprintf("'%s', %s", [
-                $path,
-                static::jsonEncode($value),
-            ]);
-        } else {
-            $isSequentialArray = $value === array_values($value);
-
-            // TODO: Nesting
-
-            // V2
-            if ($isSequentialArray) {
-                /*
-                $subValues = array_map(function ($subValue) {
-                    return static::jsonEncode($subValue);
-                }, $value);
-
-                $segments[] = vsprintf("'%s', JSON_ARRAY(%s)", [
-                    $path,
-                    implode(', ', $subValues)
-                ]);
-                */
-            } else {
-                $subValues = [];
-
-                foreach ($value as $subKey => $subValue) {
-                    $subValues[] = vsprintf("'%s', %s", [$subKey, static::jsonEncode($subValue)]);
-                }
-
-                $segments[] = vsprintf("'%s', JSON_OBJECT(%s)", [
-                    $path,
-                    implode(', ', $subValues)
-                ]);
-            }
-
-
-            /*
-            // V1
-            $emptyValueFormat = $isSequentialArray
-                ? '[]'
-                : '{}';
-
-            $pathSuffixFormat = $isSequentialArray
-                ? "%s[%d]"
-                : "%s.%s";
-
-
-            // Empty an object as it may had been an empty string also purges orphaned keys
-            // MySQL Problem
-            // $segments[] = vsprintf("'%s', %s", [$path, $emptyValueFormat]);
-
-
-            // Append sub segment
-            foreach ($value as $subKey => $subValue) {
-                $segments = array_merge(
-                    $segments,
-                    static::createSqlJsonSegments(
-                        vsprintf($pathSuffixFormat, [$path, $subKey]),
-                        $subValue
-                    )
-                );
-            }
-            */
+        // Remove keys
+        if (!empty($exclude)) {
+            $item = array_diff_key($item, $exclude);
         }
 
-        return $segments;
+        // Keep keys (not sure why MongoLite::cursor uses custom function array_key_intersect)
+        if (!empty($include)) {
+            $item = array_intersect_key($item, $include);
+        }
+
+        return $item;
     }
 }
 

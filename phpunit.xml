@@ -4,8 +4,8 @@
     cacheResult="false"
 >
     <testsuites>
-        <testsuite name="database-mysql-driver">
-            <directory>tests/MongoMysqJson</directory>
+        <testsuite name="database-storage">
+            <directory>tests/MongoHybrid</directory>
         </testsuite>
     </testsuites>
 </phpunit>

@@ -64,6 +64,17 @@ return [
 ];
 ```
 
+## Testing
+Install phpunit globally
+
+```sh
+composer global require --dev phpunit/phpunit ^8
+```
+
+```
+phpunit
+```
+
 ~~~
 # Cockpit Next
 
