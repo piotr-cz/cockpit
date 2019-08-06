@@ -116,26 +116,26 @@ class Driver
      * @inheritdoc
      * Doesn't separate collection and databse
      */
-    public function getCollection(string $name, string $db = null): Collection
+    public function getCollection(string $collectionId, string $db = null): Collection
     {
         // Using one database
-        $collectionName = static::getCollectionName($name, $db);
+        $collectionFulllId = static::getCollectionFullId($collectionId, $db);
 
-        if (!isset($this->collections[$collectionName])) {
-            $this->collections[$collectionName] = new Collection($collectionName, $this->connection);
+        if (!isset($this->collections[$collectionFulllId])) {
+            $this->collections[$collectionFulllId] = new Collection($collectionFulllId, $this->connection);
         }
 
-        return $this->collections[$collectionName];
+        return $this->collections[$collectionFulllId];
     }
 
-    public function dropCollection(string $name, string $db = null)
+    public function dropCollection(string $id, string $db = null)
     {
         die('dropCollection');
     }
 
     /**
      * Find collection items
-     * @param string $collection - ie. collections/performers5d417617d3b77
+     * @param string $collectionId - ie. collections/performers5d417617d3b77
      * @param array $options {
      *   @var array|callable|null $filter - Filter results by (criteria)
      *   @var array|null $fields - Projection
@@ -146,9 +146,9 @@ class Driver
      * }
      * @return array|MongoHybryd\ResultSet
      */
-    public function find(string $collection, array $options = []): ResultSet
+    public function find(string $collectionId, array $options = []): ResultSet
     {
-        $this->getCollection($collection);
+        $this->getCollection($collectionId);
 
         // Where
         $sqlWhereSegments = [];
@@ -382,7 +382,7 @@ class Driver
 
                                 // Skip Mongo specific stuff
                                 case '$options':
-                                    continue;
+                                    continue 2;
 
                                 // Bail out on non-supported operator
                                 default:
@@ -460,7 +460,7 @@ class Driver
                 `c`.`document`
 
             FROM
-                `{$collection}` AS `c`
+                `{$collectionId}` AS `c`
 
             {$sqlWhere}
             {$sqlOrderBy}
@@ -483,9 +483,9 @@ SQL;
      * @param string $collection - ie cockpit/accounts
      * @param array $criteria - ie ['active' => true, 'user' => 'piotr']
      */
-    public function findOne(string $collection, array $criteria = [], array $projection = []): ?array
+    public function findOne(string $collectionId, array $criteria = [], array $projection = []): ?array
     {
-        $results = $this->find($collection, [
+        $results = $this->find($collectionId, [
             'filter' => $criteria,
             'fields' => $projection,
             'limit' => 1,
@@ -494,14 +494,14 @@ SQL;
         return array_shift($results);
     }
 
-    public function findOneById($collection, $id)
+    public function findOneById($collectionId, $itemId)
     {
         die('findOneById');
     }
 
     /**
      * Insert, may be invoked by save
-     * @param string $collection - ie. cockpit/revisions
+     * @param string $collectionId - ie. cockpit/revisions
      * @param arary $data {
      *   @var string $_oid
      *   @var array $data - Data to save
@@ -511,7 +511,7 @@ SQL;
      * }
      * @return anything that evaluates to true
      */
-    public function insert(string $collection, array &$data): bool
+    public function insert(string $collectionId, array &$data): bool
     {
         // Generate ID
         $data['_id'] = createMongoDbLikeId();
@@ -519,7 +519,7 @@ SQL;
         $sql = <<<SQL
 
             INSERT INTO
-                `{$collection}` (
+                `{$collectionId}` (
                     `document`
                 )
             VALUES (
@@ -537,18 +537,18 @@ SQL;
 
     /**
      * Update item
-     * @param string $collection
+     * @param string $collectionId
      * @param array $data
      * @return boolean
      */
-    public function save(string $collection, array &$data): bool
+    public function save(string $collectionId, array &$data): bool
     {
         // It's an insert
         if (!isset($data['_id'])) {
-            return $this->insert($collection, $data);
+            return $this->insert($collectionId, $data);
         }
 
-        $id = static::jsonEncode($data['_id']);
+        $itemId = static::jsonEncode($data['_id']);
 
         // Createa array of key, value segments for JSON_SET
         $sqlSetSubSegments = [];
@@ -582,7 +582,7 @@ SQL;
         $sql = <<<SQL
 
             UPDATE
-                `{$collection}` AS `c`
+                `{$collectionId}` AS `c`
 
             SET `c`.`document` = JSON_SET(
                 `c`.`document`,
@@ -590,7 +590,7 @@ SQL;
             )
 
             WHERE
-                JSON_EXTRACT(`c`.`document`, '$._id') = {$id}
+                JSON_EXTRACT(`c`.`document`, '$._id') = {$itemId}
 SQL;
 
         $stmt = $this->connection->prepare($sql);
@@ -602,30 +602,30 @@ SQL;
     /**
      * Not used directly
      */
-    public function update($collection, $criteria, $data)
+    public function update(string $collectionId, array $criteria, array $data)
     {
         die('update');
     }
 
     /**
      * Remove item
-     * @param string $collection
+     * @param string $collectionId
      * @param array $criteria {
      *   @var string $_id
      * }
      */
-    public function remove(string $collection, array $criteria): bool
+    public function remove(string $collectionId, array $criteria): bool
     {
-        $id = static::jsonEncode($criteria['_id']);
+        $itemId = static::jsonEncode($criteria['_id']);
 
         $sql = <<<SQL
 
             DELETE
                 `c`
             FROM
-                `{$collection}` AS `c`
+                `{$collectionId}` AS `c`
             WHERE
-                JSON_EXTRACT(`c`.`document`, '$._id') = {$id}
+                JSON_EXTRACT(`c`.`document`, '$._id') = {$itemId}
 SQL;
 
         $stmt = $this->connection->prepare($sql);
@@ -641,7 +641,7 @@ SQL;
             FROM
                 `cockpit/revisions` AS `r`
             WHERE
-                JSON_EXTRACT(`r`.`document`, '$._oid') = {$id}
+                JSON_EXTRACT(`r`.`document`, '$._oid') = {$itemId}
 SQL;
 
         $stmt = $this->connection->prepare($sql);
@@ -651,22 +651,28 @@ SQL;
         return true;
     }
 
-    public function count(string $collection, array $criteria = null): int
+    /**
+     * @inheritdoc
+     */
+    public function count(string $collectionId, array $criteria = null): int
     {
         // ATM use ::find method instead of SELECT COUNT(*)
-        $results = $this->find($collection);
+        $results = $this->find($collectionId);
 
         return count($results);
     }
 
     /**
-     * Get fully qualified collection name (db / name)
+     * Get fully qualified collection name (db / id)
+     * @param string $id
+     * @param string|null $db
+     * @return string
      */
-    protected static function getCollectionName(string $name, string $db = null): string
+    protected static function getCollectionFullId(string $id, string $db = null): string
     {
         return $db
-            ? sprintf('%s/%s', $db, $name)
-            : $name;
+            ? sprintf('%s/%s', $db, $id)
+            : $id;
     }
 
     /**

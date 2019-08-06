@@ -17,8 +17,8 @@ class Collection
     protected const ORDER_BY_ASC = 1;
     protected const ORDER_BY_DESC = -1;
 
-    /** @var string */
-    protected $name;
+    /** @var string - Collection ID */
+    protected $id;
 
     /** @var \PDO - connection */
     protected $connection;
@@ -26,9 +26,9 @@ class Collection
     /**
      * Constructor
      */
-    public function __construct(string $name, PDO $connection)
+    public function __construct(string $id, PDO $connection)
     {
-        $this->name = $name;
+        $this->id = $id;
         $this->connection = $connection;
 
         $this->createIfNotExists();
@@ -90,7 +90,7 @@ class Collection
                 `c`.`document`
 
             FROM
-                `{$this->name}` AS `c`
+                `{$this->id}` AS `c`
 
             {$sqlWhere}
             {$sqlOrderBy}
@@ -177,7 +177,7 @@ SQL;
         $sql = <<<SQL
 
             DROP TABLE
-                `{$this->name}`
+                `{$this->id}`
 SQL;
 
         $stmt = $this->connection->prepare($sql);
@@ -195,7 +195,7 @@ SQL;
         $sql = <<<SQL
 
             RENAME TABLE
-                `{$this->name}`
+                `{$this->id}`
             TO
                 `{$newname}`
 SQL;
@@ -223,7 +223,7 @@ SQL;
             SELECT
                 COUNT(*)
             FROM
-                `{$this->name}` AS `c`
+                `{$this->id}` AS `c`
 SQL;
 
         $stmt = $this->connection->prepare($sql);
@@ -240,7 +240,7 @@ SQL;
     {
         $sql = <<<SQL
 
-            SHOW TABLES LIKE '{$this->name}'
+            SHOW TABLES LIKE '{$this->id}'
 SQL;
 
         $stmt = $this->connection->prepare($sql);
@@ -254,7 +254,7 @@ SQL;
 
         $sql = <<<SQL
 
-            CREATE TABLE IF NOT EXISTS `{$this->name}` (
+            CREATE TABLE IF NOT EXISTS `{$this->id}` (
                 `id`       INT  NOT NULL AUTO_INCREMENT,
                 `document` JSON NOT NULL,
                 PRIMARY KEY (`id`)

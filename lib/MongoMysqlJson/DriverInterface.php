@@ -11,17 +11,17 @@ use \MongoHybrid\ResultSet;
 interface DriverInterface
 {
     /**
-     * Get collection by name
-     * @param string $name - Collection name
-     * @param string $db - Alternative database name
+     * Get collection by id
+     * @param string $collectionId - Collection ID
+     * @param string $db - Database alternative name
      * @return \MysqlJson\CollectionInterface
      */
-    public function getCollection(string $name, string $db = null): CollectionInterface;
+    public function getCollection(string $collectionId, string $db = null): CollectionInterface;
 
     /**
      * @deprecated [NOT USED] instead MongoHybrid\Client uses CollectionInterface::drop
      */
-    public function dropCollection(string $name, string $db = null): void;
+    public function dropCollection(string $collectionId, string $db = null): void;
 
     //// Wrappers
 
@@ -29,7 +29,7 @@ interface DriverInterface
      * Wrapper around CollectionInterface::find
      * @deprecated use DriverInterface::getCollection()->find()
      *
-     * @param string collectionName
+     * @param string collectionId - Collection ID
      * @param array $options {
      *  @var array [$filter] - Filter results by (criteria)
      *  @var array [$fields] - Array of fields to exclude or include from result document (projection)
@@ -39,66 +39,66 @@ interface DriverInterface
      *  @var int [$skip] - Offset
      * }
      */
-    public function find(string $collectionName, array $options = []): ResultSet;
+    public function find(string $collectionId, array $options = []): ResultSet;
 
     /**
      * Wrapper around CollectionInterface::findOne
      * @deprecated use DriverInterface::getCollection()->findOne()
      */
-    public function findOne(string $collectionName, array $criteria): ?array;
+    public function findOne(string $collectionId, array $criteria): ?array;
 
     /**
      * Used by \MongoHybrid\ResultSet::hasOne
      */
-    public function findOneById(string $collectionName, string $id): ?array;
+    public function findOneById(string $collectionId, string $itemId): ?array;
 
     /**
      * May use mutliple items
      */
-    public function insert(string $collectionName, array &$data): bool;
+    public function insert(string $collectionId, array &$data): bool;
 
     /**
      * Insert or update, depending on $data['_id']
      */
-    public function save(string $collectionName, array &$data, bool $isCreate = false): bool;
+    public function save(string $collectionId, array &$data, bool $isCreate = false): bool;
 
     /**
      * Not used directly, only via DriverInterface::save
      */
-    public function update(string $collectionName, array $criteria, array $data): bool;
+    public function update(string $collectionId, array $criteria, array $data): bool;
 
     /**
      * Used
      */
-    public function remove(string $collectionName, array $criteria): bool;
+    public function remove(string $collectionId, array $criteria): bool;
 
     /**
      * Used
      */
-    public function count(string $collectionName, array $criteria = null): int;
+    public function count(string $collectionId, array $criteria = null): int;
 
     /**
      * Remove field in collection items (used by CLI)
      * @see #504bc559af
      *
-     * @param string $collectionName
+     * @param string $collectionId
      * @param string $fieldName
      * @param array $filter - Filter collections
      *
      * @return bool
      */
-    public function removeField(string $collectionName, string $fieldName, array $filter = []): bool;
+    public function removeField(string $collectionId, string $fieldName, array $filter = []): bool;
 
     /**
      * Rename field in collection items (used by CLI)
      * @see #76f9054307
      *
-     * @param string $collectionName
+     * @param string $collectionId
      * @param string $fieldName
      * @param string $newfieldName
      * @param array $filter
      *
      * @return bool
      */
-    public function renameField(string $collectionName, string $fieldName, string $newfieldName, array $filter = []): bool;
+    public function renameField(string $collectionId, string $fieldName, string $newfieldName, array $filter = []): bool;
 }

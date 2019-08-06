@@ -9,7 +9,7 @@ interface CollectionInterface
     /** @var DatabaseInterface */
     // public $database;
 
-    /** @var string - Collection name*/
+    /** @var string - Collection name */
     // public $name;
 
     /**
