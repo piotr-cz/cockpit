@@ -45,7 +45,7 @@ interface DriverInterface
      * Wrapper around CollectionInterface::findOne
      * @deprecated use DriverInterface::getCollection()->findOne()
      */
-    public function findOne(string $collectionId, array $criteria): ?array;
+    public function findOne(string $collectionId, $criteria, array $projection = []): ?array;
 
     /**
      * Used by \MongoHybrid\ResultSet::hasOne

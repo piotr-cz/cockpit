@@ -441,6 +441,7 @@ class Driver implements DriverInterface
             ? 'ORDER BY ' . implode(', ', $sqlOrderBySegments)
             : '';
 
+        // Limit and offset for filter which is not a callable
         if (!isset($options['filter']) || !is_callable($options['filter'])) {
             // Limit
             $sqlLimit = isset($options['limit'])
@@ -505,7 +506,7 @@ SQL;
         }
 
         // See \MongoLite\Cursor::getData
-        if (isset($options['fields'])) {
+        if (!empty($options['fields'])) {
             $exclude = [];
             $include = [];
 
@@ -516,11 +517,6 @@ SQL;
                 } else {
                     $exclude[$key] = 1;
                 }
-            }
-
-            // Don't remove `_id` via includes unliess it's explicitly excluded
-            if (!isset($exclude['_id'])) {
-                unset($include['_id']);
             }
 
             // Process items
@@ -537,7 +533,7 @@ SQL;
      * @param string $collection - ie cockpit/accounts
      * @param array $criteria - ie ['active' => true, 'user' => 'piotr']
      */
-    public function findOne(string $collectionId, array $criteria = [], array $projection = []): ?array
+    public function findOne(string $collectionId, $criteria = [], array $projection = []): ?array
     {
         $results = $this->find($collectionId, [
             'filter' => $criteria,
@@ -832,6 +828,8 @@ SQL
      */
     protected static function processItemProjection(array $item, array $exclude, array $include): array
     {
+        $id = $item['_id'];
+
         // Remove keys
         if (!empty($exclude)) {
             $item = array_diff_key($item, $exclude);
@@ -840,6 +838,11 @@ SQL
         // Keep keys (not sure why MongoLite::cursor uses custom function array_key_intersect)
         if (!empty($include)) {
             $item = array_intersect_key($item, $include);
+        }
+
+        // Don't remove `_id` via include unless it's explicitly excluded
+        if (!isset($exclude['_id'])) {
+            $item['_id'] = $id;
         }
 
         return $item;
