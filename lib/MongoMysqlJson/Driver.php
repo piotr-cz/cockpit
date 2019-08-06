@@ -19,14 +19,10 @@ use \MongoMysqlJson\ {
 
 /**
  * See MongoHybry\MongoLite
- * @see https://scotch.io/tutorials/working-with-json-in-mysql
- * docs https://dev.mysql.com/doc/refman/5.7/en/json-function-reference.html
- * @see prepared statements https://medium.com/aubergine-solutions/working-with-mysql-json-data-type-with-prepared-statements-using-it-in-go-and-resolving-the-15ef14974c48
  *
  * Quirks:
  * - MySQL normalizes (orders by key) JSON objects on insert
  * - Required MySQL 5.7.8+ / 5.7.9 (shorthand operators)
- *
  * );
  */
 class Driver implements DriverInterface
@@ -147,7 +143,6 @@ class Driver implements DriverInterface
      *   @var int $limit - Limit
      *   @var array $sort - Sort by keys
      *   @var int $skip
-     *   @var bool $populate - Append objects
      * }
      * @return array|MongoHybryd\ResultSet
      */
@@ -158,7 +153,7 @@ class Driver implements DriverInterface
         // Where
         $sqlWhereSegments = [];
 
-        if (isset($options['filter'])) {
+        if (isset($options['filter']) && is_array($options['filter'])) {
             foreach ($options['filter'] as $key => $value) {
                 // Simple equals
                 if (!is_array($value)) {
@@ -446,15 +441,19 @@ class Driver implements DriverInterface
             ? 'ORDER BY ' . implode(', ', $sqlOrderBySegments)
             : '';
 
-        // Limit
-        $sqlLimit = isset($options['limit'])
-            ? sprintf('LIMIT %d', $options['limit'])
-            : '';
+        if (!isset($options['filter']) || !is_callable($options['filter'])) {
+            // Limit
+            $sqlLimit = isset($options['limit'])
+                ? sprintf('LIMIT %d', $options['limit'])
+                : '';
 
-        // Offset (limit must be provided)
-        // https://stackoverflow.com/questions/255517/mysql-offset-infinite-rows
-        if (isset($options['limit']) && isset($options['skip'])) {
-            $sqlLimit = sprintf('LIMIT %d OFFSET %d', $options['limit'], $options['skip']);
+            // Offset (limit must be provided)
+            // https://stackoverflow.com/questions/255517/mysql-offset-infinite-rows
+            if (isset($options['limit']) && isset($options['skip'])) {
+                $sqlLimit = sprintf('LIMIT %d OFFSET %d', $options['limit'], $options['skip']);
+            }
+        } else {
+            $sqlLimit = '';
         }
 
         // Build query (TODO: probably just document is enough)
@@ -474,10 +473,36 @@ SQL;
         $stmt = $this->connection->prepare($sql);
         $stmt->execute();
 
-        $results = $stmt->fetchAll();
+        $items = [];
 
-        // Decode each document
-        $items = array_map('static::jsonDecode', $results);
+        if (isset($options['filter']) && is_callable($options['filter'])) {
+            $index = 0;
+            $skip = $options['skip'] ?? null;
+            $limit = $options['limit'] ?? null;
+
+            while ($result = $stmt->fetch()) {
+                $item = static::jsonDecode($result);
+
+                // Evaluate criteria, must return boolean
+                if ($options['filter']($item)) {
+                    // Skip
+                    if (!$skip || $index >= $skip) {
+                        $items[] = $item;
+                    }
+
+                    $index++;
+                }
+
+                // Limit Limit
+                if ($limit && count($items) >= $limit) {
+                    break;
+                }
+            }
+        } else {
+            foreach ($stmt->fetchAll() as $result) {
+                $items[] = static::jsonDecode($result);
+            }
+        }
 
         // See \MongoLite\Cursor::getData
         if (isset($options['fields'])) {
