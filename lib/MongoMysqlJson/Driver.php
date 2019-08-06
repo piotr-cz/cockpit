@@ -10,7 +10,8 @@ use \MongoHybrid\ResultSet;
 
 use \MongoMysqlJson\ {
     DriverException,
-    Collection
+    Collection,
+    CollectionInterface
 };
 
 // Note: Cannot use function
@@ -28,7 +29,7 @@ use \MongoMysqlJson\ {
  *
  * );
  */
-class Driver
+class Driver implements DriverInterface
 {
     /** @var string - Min database version */
     protected const DB_MIN_SERVER_VERSION = '5.7.9';
@@ -116,7 +117,7 @@ class Driver
      * @inheritdoc
      * Doesn't separate collection and databse
      */
-    public function getCollection(string $collectionId, string $db = null): Collection
+    public function getCollection(string $collectionId, string $db = null): CollectionInterface
     {
         // Using one database
         $collectionFulllId = static::getCollectionFullId($collectionId, $db);
@@ -128,27 +129,13 @@ class Driver
         return $this->collections[$collectionFulllId];
     }
 
-    public function dropCollection(string $id, string $db = null)
+    /**
+     * @inheritdoc
+     */
+    public function dropCollection(string $collectionId, string $db = null): void
     {
         // TODO: remove from collections cache
         die('dropCollection');
-    }
-
-    /**
-     * Empty collection
-     */
-    public function empty(string $id, string $db = null): bool
-    {
-        $this->getCollection($id, $db);
-
-        $this->connection->query(<<<SQL
-
-            TRUNCATE
-                `{$id}`
-SQL
-        );
-
-        return true;
     }
 
     /**
@@ -536,7 +523,10 @@ SQL;
         return array_shift($results);
     }
 
-    public function findOneById($collectionId, $itemId)
+    /**
+     * @inheritdoc
+     */
+    public function findOneById(string $collectionId, string $itemId): ?array
     {
         die('findOneById');
     }
@@ -558,16 +548,16 @@ SQL;
         // Generate ID
         $data['_id'] = createMongoDbLikeId();
 
-        $sql = <<<SQL
+        $stmt = $this->connection->prepare(<<<SQL
 
             INSERT INTO
                 `{$collectionId}` (`document`)
             VALUES (
                     :data
                 )
-SQL;
+SQL
+        );
 
-        $stmt = $this->connection->prepare($sql);
         $stmt->execute([
             ':data' => static::jsonEncode($data)
         ]);
@@ -576,12 +566,9 @@ SQL;
     }
 
     /**
-     * Update item
-     * @param string $collectionId
-     * @param array $data
-     * @return boolean
+     * @inheritdoc
      */
-    public function save(string $collectionId, array &$data): bool
+    public function save(string $collectionId, array &$data, bool $isCreate = false): bool
     {
         // It's an insert
         if (!isset($data['_id'])) {
@@ -631,19 +618,17 @@ SQL
     }
 
     /**
-     * Not used directly
+     * @inheritdoc
+     * TODO: Use criteria
      */
-    public function update(string $collectionId, array $criteria, array $data)
+    public function update(string $collectionId, array $criteria, array $data): bool
     {
         die('update');
+        return true;
     }
 
     /**
-     * Remove item
-     * @param string $collectionId
-     * @param array $criteria {
-     *   @var string $_id
-     * }
+     * @inheritdoc
      */
     public function remove(string $collectionId, array $criteria): bool
     {
@@ -666,14 +651,56 @@ SQL
     /**
      * @inheritdoc
      */
-    public function count(string $collectionId, array $criteria = []): int
+    public function count(string $collectionId, array $criteria = null): int
     {
         // ATM use ::find method instead of SELECT COUNT(*)
         $results = $this->find($collectionId, [
-            'filter' => $criteria
+            'filter' => $criteria ?? []
         ]);
 
         return count($results);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function removeField(string $collectionId, string $fieldName, array $filter = []): bool
+    {
+        $items = $this->find($collectionId, ['filter' => $filter]);
+
+        foreach ($items as $item) {
+            if (!isset($item[$fieldName])) {
+                continue;
+            }
+
+            unset($item[$fieldName]);
+
+            $this->update($collectionId, ['_id' => $item['_id']], $item, false);
+        }
+
+        return true;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function renameField(string $collectionId, string $fieldName, string $newfieldName, array $filter = []): bool
+    {
+        $items = $this->find($collectionId, ['filter' => $filter]);
+
+        foreach ($items as $item) {
+            if (!isset($item[$fieldName])) {
+                continue;
+            }
+
+            $item[$newfieldName] = $item[$fieldName];
+
+            unset($item[$fieldName]);
+
+            $this->update($collectionId, ['_id' => $item['_id']], $item, false);
+        }
+
+        return true;
     }
 
     /**

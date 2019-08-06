@@ -37,12 +37,12 @@ interface CollectionInterface
     /**
      * Insert document(s)
      */
-    public function insert(array &$document): bool;
+    // public function insert(array &$document): bool;
 
     /**
      * Insert or update depending on $document['_id']
      */
-    public function save(array &$document, bool $isCreate = false): bool;
+    // public function save(array &$document, bool $isCreate = false): bool;
 
     /**
      * Update documents
@@ -50,14 +50,14 @@ interface CollectionInterface
      * @param array $data
      * @param bool $isMerge
      */
-    public function update($criteria, array $data, bool $isMerge = true): int;
+    // public function update($criteria, array $data, bool $isMerge = true): int;
 
     /**
      * Remove document
      * @param callable|array $criteria
      * @return bool
      */
-    public function remove($criteria): bool;
+    // public function remove($criteria): bool;
 
     /**
      * Count documents in collections
@@ -67,7 +67,7 @@ interface CollectionInterface
      * @param  callable|array|null $criteria
      * @return integer
      */
-    public function count($criteria = null): int;
+    public function count(array $criteria = null): int;
 
     /**
      * Rename collection

@@ -68,7 +68,6 @@ class ClientTest extends TestCase
             $databaseConfig['options']['password'],
             $databaseConfig['driverOptions']
         );
-
     }
 
     /**
@@ -112,7 +111,6 @@ SQL
     {
     }
 
-
     /**
      * Can test only by check database
      * @covers \MongoHybrid\Client::dropCollection
@@ -127,10 +125,7 @@ SQL
 SQL
         );
 
-        $exists = (bool) $stmt->fetchColumn();
-
-
-        $this->assertTrue($exists === false);
+        $this->assertTrue($stmt->fetchColumn() === false);
     }
 
     /**
@@ -570,6 +565,38 @@ SQL
     {
         $this->assertTrue(
             static::$storage->count($this->mockCollectionId) === count(static::$mockCollectionItems)
+        );
+    }
+
+    /**
+     * @covers \MongoHybridClient::removeField
+     */
+    public function testRemoveField()
+    {
+        static::$storage->removeField($this->mockCollectionId, 'content');
+
+        $items = static::$storage->find($this->mockCollectionId);
+
+        $this->assertTrue(
+            !in_array('content', array_keys($items[0]))
+        );
+    }
+
+    /**
+     * @covers \MongoHybridClient::renameField
+     */
+    public function testRenameField()
+    {
+        static::$storage->renameField($this->mockCollectionId, 'content', 'bio');
+
+        $items = static::$storage->find($this->mockCollectionId);
+
+        $this->assertTrue(
+            !in_array('content', array_keys($items[0]))
+        );
+
+        $this->assertTrue(
+            in_array('bio', array_keys($items[0]))
         );
     }
 

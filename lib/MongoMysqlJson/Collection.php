@@ -6,10 +6,12 @@ namespace MongoMysqlJson;
 
 use PDO;
 
+use \MongoMysqlJson\CollectionInterface;
+
 /**
  * Collection. Not sure why it's required by MongoHybrid\Client
  */
-class Collection
+class Collection implements CollectionInterface
 {
     /**
      * Order by values
@@ -172,43 +174,6 @@ SQL;
     /**
      * @inheritdoc
      */
-    public function drop()
-    {
-        $sql = <<<SQL
-
-            DROP TABLE IF EXISTS
-                `{$this->id}`
-SQL;
-
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute();
-
-        return;
-    }
-
-    /**
-     * @inheritdoc
-     * [NOT USED]
-     */
-    public function renameCollection(string $newname): bool
-    {
-        $sql = <<<SQL
-
-            RENAME TABLE
-                `{$this->id}`
-            TO
-                `{$newname}`
-SQL;
-
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute();
-
-        return true;
-    }
-
-    /**
-     * @inheritdoc
-     */
     public function count(array $criteria = null): int
     {
         // Using find which is slower
@@ -234,34 +199,69 @@ SQL;
     }
 
     /**
+     * @inheritdoc
+     * [NOT USED]
+     */
+    public function renameCollection(string $newname): bool
+    {
+        $stmt = $this->connection->prepare(<<<SQL
+
+            RENAME TABLE
+                `{$this->id}`
+            TO
+                `{$newname}`
+SQL
+        );
+
+        $stmt->execute();
+
+        return true;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function drop(): bool
+    {
+        $stmt = $this->connection->prepare(<<<SQL
+
+            DROP TABLE IF EXISTS
+                `{$this->id}`
+SQL
+        );
+
+        $stmt->execute();
+
+        return true;
+    }
+
+    /**
      * Create table if does not exist
      */
     protected function createIfNotExists(): void
     {
-        $sql = <<<SQL
+        $stmt = $this->connection->prepare(<<<SQL
 
             SHOW TABLES LIKE '{$this->id}'
-SQL;
+SQL
+        );
 
-        $stmt = $this->connection->prepare($sql);
         $stmt->execute();
 
-        $exists = (bool) $stmt->fetchColumn();
-
-        if ($exists) {
+        if ($stmt->fetchColumn()) {
             return;
         }
 
-        $sql = <<<SQL
+        $stmt = $this->connection->prepare(<<<SQL
 
             CREATE TABLE IF NOT EXISTS `{$this->id}` (
                 `id`       INT  NOT NULL AUTO_INCREMENT,
                 `document` JSON NOT NULL,
                 PRIMARY KEY (`id`)
             )
-SQL;
+SQL
+        );
 
-        $stmt = $this->connection->prepare($sql);
         $stmt->execute();
 
         return;

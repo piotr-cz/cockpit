@@ -1,7 +1,7 @@
 <?php
 namespace MongoMysqlJson;
 
-use \MysqlJson\CollectionInterface;
+use \MongoMysqlJson\CollectionInterface;
 
 use \MongoHybrid\ResultSet;
 
@@ -59,6 +59,12 @@ interface DriverInterface
 
     /**
      * Insert or update, depending on $data['_id']
+     * @param string $collectionId
+     * @param array &$data {
+     *   @param string [$id]
+     * }
+     * @param bool $isCreate
+     * @return bool
      */
     public function save(string $collectionId, array &$data, bool $isCreate = false): bool;
 
@@ -68,7 +74,12 @@ interface DriverInterface
     public function update(string $collectionId, array $criteria, array $data): bool;
 
     /**
-     * Used
+     * Remove item
+     * @param string $collectionId
+     * @param array $criteria {
+     *   @var string $_id
+     * }
+     * @return bool
      */
     public function remove(string $collectionId, array $criteria): bool;
 
