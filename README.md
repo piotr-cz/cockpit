@@ -2,8 +2,9 @@
 
 ## Requirements
 
-- PDO extension (`pdo`, & `pdo_mysql` & `json`)
-- MySQL 5.7.9+ for JSON functions support
+- MySQL 5.7.9+
+- PHP 7.1+
+- PHP extensions: *pdo*, *pdo_mysql* and *json*
 
 
 ## Differences
@@ -33,10 +34,10 @@
 
 ### No Cursor implementation
 
-This doesn't work
+This doesn't work:
 
 ```php
-$cursor = $app->storage->getCollection('foobar')->find(['_o' => ['$lte' => 0]])
+$cursor = $app->storage->getCollection('foobar')->find(['_o' => ['$lte' => 0]]);
 
 $results = $cursor
     ->limit(10)
@@ -45,7 +46,7 @@ $results = $cursor
     ->toArray();
 ```
 
-Workaround
+This works:
 
 ```php
 $results = $app->storage->find([
@@ -66,10 +67,10 @@ return [
         'server' => 'mongomysqljson',
         // Connection options
         'options' => [
-            'connection' => 'mysql',
-            'host' => 'localhost',
-            'db' => 'DATABASE_NAME',
-            'charset' => 'UTF8',
+            'host'     => 'localhost', // Optional, defaults to 'localhost'
+            'port'     => '3306' // Optional
+            'dbname'   => 'DATABASE_NAME',
+            'charset'  => 'UTF8', // Optional, defaults to 'UTF8'
             'username' => 'USER',
             'password' => 'PASSWORD',
         ],

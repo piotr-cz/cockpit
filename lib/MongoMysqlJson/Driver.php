@@ -23,7 +23,7 @@ use \MongoMysqlJson\ {
  *
  * Quirks:
  * - MySQL normalizes (orders by key) JSON objects on insert
- * - Required MySQL 5.7.8+ / 5.7.9 (shorthand operators)
+ * - Requires 5.7.9+ (JSON support and shorthand operators)
  * );
  */
 class Driver implements DriverInterface
@@ -50,16 +50,19 @@ class Driver implements DriverInterface
      */
     public function __construct(array $options, array $driverOptions = [])
     {
-        $dsn = vsprintf('%s:host=%s;dbname=%s;charset=UTF8', [
-            $options['connection'],
-            $options['host'],
-            $options['db'],
+        // See https://www.php.net/manual/en/ref.pdo-mysql.connection.php
+        $dsn = vsprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', [
+            $options['host'] ?? 'localhost',
+            $options['port'] ?? null,
+            $options['dbname'],
+            $options['charset'] ?? 'UTF8'
         ]);
 
         // Using + to keep keys
         $driverOptions = $driverOptions + [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_COLUMN,
+            // PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4',
         ];
 
         try {
