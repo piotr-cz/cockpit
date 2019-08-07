@@ -1,4 +1,4 @@
-# Cockpit Next - MySQL driver version
+# Cockpit Next - MySQL JSON driver version
 
 ## Requirements
 
@@ -18,19 +18,21 @@
 
 #### Works differently
 
-- callable as a filter
-  PDO MySQL Driver [unlike SQLite](https://www.php.net/manual/en/pdo.sqlitecreatefunction.php) doesn't have support for User Defined Functions so callable is evaluated for every result
+- callable
+
+  [unlike SQLite](https://www.php.net/manual/en/pdo.sqlitecreatefunction.php) PDO MySQL driver doesn't have support for User Defined Functions in php language so callable is evaluated on every result fetch
 
 - `$in`, `$nin`
-  When databse value is an array, evaluates to false
 
-- `$regexp`
-  implemented via [REGEXP](https://dev.mysql.com/doc/refman/5.7/en/regexp.html) + case insensitive
-  Wrapping in `//` or adding flag via `/foobar/i` doesn't work
+  when databse value is an array, evaluates to false
 
-- `$text`
-  implemeted via [LIKE](https://dev.mysql.com/doc/refman/5.7/en/string-comparison-functions.html#operator_like)
-  Options are not supported (_$minScore_, _$distance_, _$search_)
+- `$regexp` (implemented via [REGEXP](https://dev.mysql.com/doc/refman/5.7/en/regexp.html) + case insensitive)
+
+  wrapping expression in `//` or adding flags like `/foobar/i` doesn't work, as MySQL Regexp doesn't support flags
+
+- `$text` (implemeted via [LIKE](https://dev.mysql.com/doc/refman/5.7/en/string-comparison-functions.html#operator_like))
+
+  options are not supported (_$minScore_, _$distance_, _$search_)
 
 ### No Cursor implementation
 
