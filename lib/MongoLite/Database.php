@@ -418,7 +418,7 @@ class UtilArrayQuery {
             case '$mod' :
                 if (! \is_array($b))
                     throw new \InvalidArgumentException('Invalid argument for $mod option must be array');
-                list($x, $y) = each($b);
+                $x = array_keys($b)[0];
                 $r = $a % $x == 0;
                 break;
 
@@ -498,7 +498,7 @@ function fuzzy_search($search, $text, $distance = 3){
                 $score += 1;
             } else {
 
-                $d = \levenshtein_utf8($needle, $token);
+                $d = levenshtein_utf8($needle, $token);
 
                 if ($d <= $distance) {
                     $l       = \mb_strlen($token, 'UTF-8');
