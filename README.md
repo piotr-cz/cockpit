@@ -1,23 +1,24 @@
 # Cockpit Next - MySQL driver version
 
 ## Requirements
+
 - PDO extension (`pdo`, & `pdo_mysql` & `json`)
 - MySQL 5.7.9+ for JSON functions support
 
 
 ## Differences
-### using callable as filter
-Not straightforward as PDO MySQL Driver doesn't have support for User Defined Functions
-unlike SQLite (https://www.php.net/manual/en/pdo.sqlitecreatefunction.php).
 
+### Collection filters
 
-## Collection filters
+#### Not implemented
 
-### Not implemented work:
 - `$func`/ `$fn`/ `$f`
 - `$fuzzy`
 
-### Work differently:
+#### Works differently
+
+- callable as a filter
+  PDO MySQL Driver [unlike SQLite](https://www.php.net/manual/en/pdo.sqlitecreatefunction.php) doesn't have support for User Defined Functions so callable is evaluated for every result
 
 - `$in`, `$nin`
   When databse value is an array, evaluates to false
@@ -30,9 +31,30 @@ unlike SQLite (https://www.php.net/manual/en/pdo.sqlitecreatefunction.php).
   implemeted via [LIKE](https://dev.mysql.com/doc/refman/5.7/en/string-comparison-functions.html#operator_like)
   Options are not supported (_$minScore_, _$distance_, _$search_)
 
-cannot pass options
+### No Cursor implementation
 
-# No cursor implementation
+This doesn't work
+
+```php
+$cursor = $app->storage->getCollection('foobar')->find(['_o' => ['$lte' => 0]])
+
+$results = $cursor
+    ->limit(10)
+    ->sort(['_o' => 1])
+    ->skip(1)
+    ->toArray();
+```
+
+Workaround
+
+```php
+$results = $app->storage->find([
+    'filter' => ['_o' => ['$lte' => 0]],
+    'limit'  => 10,
+    'sort'   => ['_o' => 1],
+    'skip'   => 1,
+]);
+```
 
 ## Setup
 
@@ -70,7 +92,8 @@ composer global require --dev phpunit/phpunit ^8
 phpunit
 ```
 
-~~~
+___
+
 # Cockpit Next
 
 [![Backers on Open Collective](https://opencollective.com/cockpit/backers/badge.svg)](#backers) [![Sponsors on Open Collective](https://opencollective.com/cockpit/sponsors/badge.svg)](#sponsors)
