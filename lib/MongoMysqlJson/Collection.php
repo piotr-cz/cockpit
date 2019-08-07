@@ -252,6 +252,21 @@ SQL
             return;
         }
 
+/*
+        // keyval (cockpit.memory.sqlite) has different signature
+        if ($this->id === 'cockpit.memory') {
+            $stmt = $this->connection->prepare(<<<SQL
+
+                CREATE TABLE IF NOT EXISTS `{$this->id}` (
+                    `key`    VARCHAR NOT NULL,
+                    `keyval` TEXT        NULL,
+                    UNIQUE KEY (`key`)
+                )
+SQL
+            );
+        }
+*/
+
         $stmt = $this->connection->prepare(<<<SQL
 
             CREATE TABLE IF NOT EXISTS `{$this->id}` (

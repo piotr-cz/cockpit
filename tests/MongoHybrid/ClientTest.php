@@ -19,12 +19,11 @@ class ClientTest extends TestCase
     protected static $mockCollectionIdPattern = 'collections/test%s';
 
     /** @var array */
-    protected static $mockCollectionItems = [
+    protected static $mockCollectionItemsDefs = [
         [
             'content' => 'Lorem ipsum',
             'array' => ['foo'],
             '_o' => 1,
-            '_id' => '5d41792c3961382d610002e2',
             '_created' =>  1546297200.000,
             '_modified' => 1546297200.000,
         ],
@@ -32,7 +31,6 @@ class ClientTest extends TestCase
             'content' => 'Etiam tempor',
             'array' => ['foo', 'bar'],
             '_o' => 2,
-            '_id' => '5d41792c3961382d610002e3',
             '_created' =>  1546297200.000,
             '_modified' => 1546297200.000,
         ]
@@ -40,6 +38,9 @@ class ClientTest extends TestCase
 
     /** @var string */
     protected $mockCollectionId;
+
+    /** @var array */
+    protected $mockCollectionItems = [];
 
     /**
      * @inheritdoc
@@ -57,17 +58,38 @@ class ClientTest extends TestCase
             $databaseConfig['driverOptions']
         );
 
-        // Create inpection connection
-        static::$connection = new PDO(
-            vsprintf('%s:host=%s;dbname=%s;charset=UTF8', [
+        /*
+        // MySQL driver
+        if (static::$storage->type === 'mongomysqljson') {
+            $dns = vsprintf('%s:host=%s;dbname=%s;charset=UTF8', [
                 $databaseConfig['options']['connection'],
                 $databaseConfig['options']['host'],
                 $databaseConfig['options']['db']
-            ]),
-            $databaseConfig['options']['username'],
-            $databaseConfig['options']['password'],
+            ]);
+        // SQLite driver
+        } else if (static::$storage->type === 'mongolite') {
+            // $dns = sprintf('sqlite::memory:');
+            $dns = str_replace('mongolite://', 'sqlite:', $databaseConfig['server']) . '/collections.sqlite';
+        // Other (mongodb)
+        } else {
+            throw new \InvalidArgumentException('Driver not supported');
+        }
+
+        // Create inpection connection, same as defined in config
+        static::$connection = new PDO(
+            $dns,
+            $databaseConfig['options']['username'] ?? null,
+            $databaseConfig['options']['password'] ?? null,
             $databaseConfig['driverOptions']
         );
+
+        // Configure sqlite
+        if (static::$connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            static::$connection->exec('PRAGMA journal_mode = MEMORY');
+            static::$connection->exec('PRAGMA synchronous = OFF');
+            static::$connection->exec('PRAGMA PAGE_SIZE = 4096');
+        }
+        */
     }
 
     /**
@@ -75,12 +97,14 @@ class ClientTest extends TestCase
      */
     protected function setUp(): void
     {
+
         // Create new collection for each test to avoid conflicts
         $this->mockCollectionId = sprintf(static::$mockCollectionIdPattern, uniqid());
 
         // Create collection via storage
         static::$storage->getCollection($this->mockCollectionId);
 
+        /*
         // Add mock data
         $stmt = static::$connection->prepare(<<<SQL
 
@@ -92,16 +116,19 @@ class ClientTest extends TestCase
 SQL
         );
 
-        foreach (static::$mockCollectionItems as $mockCollectionItem) {
-            $stmt->execute([':item' => json_encode($mockCollectionItem)]);
-        }
-
-        /*
-        // Note: using storage insert creates new IDs
-        foreach (static::$mockCollectionItems as $mockCollectionItem) {
-            static::$storage->insert($this->mockCollectionId, $mockCollectionItem);
+        foreach (static::$mockCollectionItemsDefs as $mockCollectionItem) {
+            $stmt->execute([':item' => json_encode($mockCollectionItem, JSON_UNESCAPED_UNICODE)]);
         }
         */
+
+        // Note: using storage insert creates new IDs
+        foreach (static::$mockCollectionItemsDefs as $mockCollectionItem) {
+            unset($mockCollectionItem['_id']);
+
+            static::$storage->insert($this->mockCollectionId, $mockCollectionItem);
+
+            $this->mockCollectionItems[] = $mockCollectionItem;
+        }
     }
 
     /**
@@ -112,10 +139,11 @@ SQL
     }
 
     /**
-     * Can test only by check database
+     * Can test only by checking database via raw connection
+     * Hovewer SQLite doesn't work fine with multiple connections
      * @covers \MongoHybrid\Client::dropCollection
      */
-    public function testDropCollection(): void
+    public function XXXtestDropCollection(): void
     {
         static::$storage->dropCollection($this->mockCollectionId);
 
@@ -458,7 +486,7 @@ SQL
      */
     public function testFindFields(): void
     {
-        // Remove
+        // Remove when _id: false, only id is retuned ?
         $items = static::$storage->find($this->mockCollectionId, [
             'fields' => [
                 'content' => false,
@@ -476,8 +504,9 @@ SQL
             ]
         ]);
 
+        // Note: id must be available unless it's explicitely blacklisted
         $this->assertTrue(
-            array_keys($items[0]) == ['content']
+            array_keys($items[0]) == ['content', '_id']
         );
     }
 
@@ -537,7 +566,7 @@ SQL
      */
     public function TODOtestFinOneById(): void
     {
-        $itemId = '5d41792c3961382d610002e2';
+        $itemId = $this->mockCollectionItems[0]['_id'];
 
         // TODO: use findOneById
         $item = static::$storage->findOne($this->mockCollectionId, ['_id' => $itemId]);
@@ -554,7 +583,7 @@ SQL
      * @covers \MongoHybrid\Client::update
      * @covers \MongoHybrid\Client::count
      */
-    public function testSave(): void
+    public function XXXtestSave(): void
     {
         $item = [
             '_o' => 3,
@@ -572,7 +601,7 @@ SQL
 
         // Update
         $item = [
-            '_id' => '5d41792c3961382d610002e3',
+            '_id' => $this->mockCollectionItems[1]['_id'],
             '_o' => 4,
             '_created' =>  1546297200.000,
             '_modified' => 1546297200.000,
@@ -592,7 +621,7 @@ SQL
      */
     public function testRemove(): void
     {
-        $item = static::$mockCollectionItems[0];
+        $item = $this->mockCollectionItems[0];
 
         static::$storage->remove($this->mockCollectionId, $item);
 
@@ -608,7 +637,7 @@ SQL
     public function testCount()
     {
         $this->assertTrue(
-            static::$storage->count($this->mockCollectionId) === count(static::$mockCollectionItems)
+            static::$storage->count($this->mockCollectionId) === count($this->mockCollectionItems)
         );
     }
 
