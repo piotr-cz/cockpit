@@ -13,7 +13,7 @@ unlike SQLite (https://www.php.net/manual/en/pdo.sqlitecreatefunction.php).
 
 ## Collection filters
 
-### Don't work:
+### Not implemented work:
 - `$func`/ `$fn`/ `$f`
 - `$fuzzy`
 
@@ -26,13 +26,8 @@ unlike SQLite (https://www.php.net/manual/en/pdo.sqlitecreatefunction.php).
   implemented via [REGEXP](https://dev.mysql.com/doc/refman/5.7/en/regexp.html) + case insensitive
   Wrapping in `//` or adding flag via `/foobar/i` doesn't work
 
-- `$fuzzy`
-  implemented via [SOUNDEX](https://dev.mysql.com/doc/refman/5.7/en/string-functions.html#function_soundex)
-
 - `$text`
   implemeted via [LIKE](https://dev.mysql.com/doc/refman/5.7/en/string-comparison-functions.html#operator_like)
-
-- `$fuzzy` and `$text`
   Options are not supported (_$minScore_, _$distance_, _$search_)
 
 cannot pass options

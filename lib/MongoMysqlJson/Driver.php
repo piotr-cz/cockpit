@@ -4,6 +4,7 @@ namespace MongoMysqlJson;
 use PDO;
 use PDOException;
 
+use ErrorException;
 use InvalidArgumentException;
 
 use \MongoHybrid\ResultSet;
@@ -330,7 +331,7 @@ class Driver implements DriverInterface
                                 case '$func':
                                 case '$fn':
                                 case '$f':
-                                    throw new InvalidArgumentException(sprintf('Function %s not supported', $mongoOperator));
+                                    throw new InvalidArgumentException(sprintf('Function %s not supported by database driver', $mongoOperator), 1);
 
                                 // Path exists
                                 // Warning: doesn't check if key exists
@@ -342,21 +343,15 @@ class Driver implements DriverInterface
                                     break;
 
                                 // Fuzzy search
+                                // Note: PHP produces 4 char string while MySQL longer ones
+                                // Note: no idea how to implement. SOUNDEX doesn't search in strings.
                                 case '$fuzzy':
-                                    if (is_array($value)) {
-                                        throw new InvalidArgumentException(sprintf('Options for %s func are not suppored by this database driver', $mongoOperator));
-                                    }
-
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' SOUNDS LIKE %s", [
-                                        $fieldName,
-                                        static::jsonEncode($value),
-                                    ]);
-                                    break;
+                                    throw new InvalidArgumentException(sprintf('Function %s not supported by database driver', $mongoOperator), 1);
 
                                 // Text search
                                 case '$text':
                                     if (is_array($value)) {
-                                        throw new InvalidArgumentException(sprintf('Options for %s func are not suppored by this database driver', $mongoOperator));
+                                        throw new InvalidArgumentException(sprintf('Options for %s function are not suppored by database driver', $mongoOperator), 1);
                                     }
 
                                     $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' LIKE %s", [
@@ -386,7 +381,7 @@ class Driver implements DriverInterface
 
                                 // Bail out on non-supported operator
                                 default:
-                                    throw new \ErrorException(sprintf('Condition not valid ... Use %s for custom operations', $mongoOperator));
+                                    throw new ErrorException(sprintf('Condition not valid ... Use %s for custom operations', $mongoOperator));
                             }
                         }
 

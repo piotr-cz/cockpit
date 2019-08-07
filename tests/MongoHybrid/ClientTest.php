@@ -2,6 +2,9 @@
 namespace Test\MongoHybrid;
 
 use PDO;
+
+use InvalidArgumentException;
+
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -72,7 +75,7 @@ class ClientTest extends TestCase
             $dns = str_replace('mongolite://', 'sqlite:', $databaseConfig['server']) . '/collections.sqlite';
         // Other (mongodb)
         } else {
-            throw new \InvalidArgumentException('Driver not supported');
+            throw new InvalidArgumentException('Driver not supported');
         }
 
         // Create inpection connection, same as defined in config
@@ -123,8 +126,6 @@ SQL
 
         // Note: using storage insert creates new IDs
         foreach (static::$mockCollectionItemsDefs as $mockCollectionItem) {
-            unset($mockCollectionItem['_id']);
-
             static::$storage->insert($this->mockCollectionId, $mockCollectionItem);
 
             $this->mockCollectionItems[] = $mockCollectionItem;
@@ -140,10 +141,10 @@ SQL
 
     /**
      * Can test only by checking database via raw connection
-     * Hovewer SQLite doesn't work fine with multiple connections
+     * Hovewer SQLite doesn't work fine with additional connections (file lock)
      * @covers \MongoHybrid\Client::dropCollection
      */
-    public function XXXtestDropCollection(): void
+    public function donotTestDropCollection(): void
     {
         static::$storage->dropCollection($this->mockCollectionId);
 
@@ -190,6 +191,13 @@ SQL
      */
     public function testFindFilterOperators(): void
     {
+        /*
+        // TODO: no operators
+        $items = static::$storage->find($this->mockCollectionId, [
+            'filter' => ['_o' => ['$eq' => 2]]
+        ]);
+        */
+
         // Assert $and operator
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
@@ -435,8 +443,23 @@ SQL
         );
 
 
+        /*
         // Assert $func/ $fn/ $f func
-        // Not implemented
+        // Doesn't seem to work in MongoLite (callable is mangled in var_export)
+        // Not implemented in MysqlJson
+        $items = static::$storage->find($this->mockCollectionId, [
+            'filter' => [
+                '$and' => [
+                    ['_o' => ['$func' => function (array $item): bool { return $item['_o'] === 2; }]]
+                ]
+            ]
+        ]);
+
+        $this->assertTrue(
+            count($items) && $items[0]['_o'] === 2,
+            'Failed $func func'
+        );
+        */
 
 
         // Assert $exists func
@@ -455,14 +478,27 @@ SQL
 
 
         // Assert $fuzzy func
-        $items = static::$storage->find($this->mockCollectionId, [
-            'filter' => [
-                '$and' => [
-                    ['content' => ['$fuzzy' => 'Etiam tmpor']]
+        // Not implemented in MysqlJson
+        try {
+            $items = static::$storage->find($this->mockCollectionId, [
+                'filter' => [
+                    '$and' => [
+                        ['content' => ['$fuzzy' => 'temp']]
+                    ]
                 ]
-            ]
-        ]);
+            ]);
 
+            $this->assertTrue(
+                count($items) && strpos($items[0]['content'], 'Etiam tempo') !== false,
+                'Failed $fuzzy func'
+            );
+        } catch (InvalidArgumentException $exception) {
+            // Continue only when exception was thrown due to lack of support in driver
+            // Probably should use custom exception type
+            if ($exception->getCode() !== 1) {
+                throw $exception;
+            }
+        }
 
         // Assert $text func
         $items = static::$storage->find($this->mockCollectionId, [
