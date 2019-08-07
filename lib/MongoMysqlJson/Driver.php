@@ -4,7 +4,6 @@ namespace MongoMysqlJson;
 use PDO;
 use PDOException;
 
-use ErrorException;
 use InvalidArgumentException;
 
 use \MongoHybrid\ResultSet;
@@ -12,7 +11,8 @@ use \MongoHybrid\ResultSet;
 use \MongoMysqlJson\ {
     DriverException,
     Collection,
-    CollectionInterface
+    CollectionInterface,
+    QueryBuilder
 };
 
 // Note: Cannot use function
@@ -36,6 +36,9 @@ class Driver implements DriverInterface
 
     /** @var array - Collections cache */
     protected $collections = [];
+
+    /** @var \MongoMysqlJson\QueryBuilder */
+    protected $queryBuilder;
 
     /**
      * @param array $options {
@@ -78,6 +81,8 @@ class Driver implements DriverInterface
         }
 
         $this->assertIsSupported();
+
+        $this->queryBuilder = new QueryBuilder([$this->connection, 'quote']);
     }
 
     /**
@@ -154,308 +159,30 @@ class Driver implements DriverInterface
     {
         $this->getCollection($collectionId);
 
+        // Sanitize options
+        $options = array_merge([
+            'filter' => null,
+            'fields' => null,
+            'sort'   => null,
+            'limit'  => null,
+            'skip'   => null,
+        ], $options);
+
         // Where
-        $sqlWhereSegments = [];
-
-        if (isset($options['filter']) && is_array($options['filter'])) {
-            foreach ($options['filter'] as $key => $value) {
-                // Simple equals
-                if (!is_array($value)) {
-                    $sqlWhereSegments[] = vsprintf("`c`.`document` -> '$.%s' = %s", [
-                        $key,
-                        static::jsonEncode($value),
-                    ]);
-
-                    continue;
-                }
-
-                /* Multiple filters in format
-                 * [    // $key
-                 *
-                 *     '$or' => [
-                 *          // $value
-                 *          ['name' => ['$regex' => 'Anna']],
-                 *          ['type' => ['$regex' => 'Anna']],
-                 *          ['bio' => ['$regex' => 'Anna']]
-                 *      ]
-                 * ]
-                 */
-
-                // Key is operator ($or)
-                $sqlWhereGroupSegments = [];
-
-                foreach ($value as $criterias) {
-                    foreach ($criterias as $fieldName => $criteria) {
-                        // criteria example:
-                        // ['$regex' => 'foobar', '$options' => 'i']
-                        // ['$in' => ['foo', 'bar']]
-
-                        $sqlWhereGroupSubSegments = [];
-
-                        foreach ($criteria as $mongoOperator => $value) {
-
-                            // See https://dev.mysql.com/doc/refman/5.7/en/comparison-operators.html
-                            switch ($mongoOperator) {
-                                // Equals
-                                case '$eq':
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' = %s", [
-                                        $fieldName,
-                                        static::jsonEncode($value)
-                                    ]);
-                                    break;
-
-                                // Not equals
-                                case '$not' :
-                                case '$ne' :
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' <> %s", [
-                                        $fieldName,
-                                        static::jsonEncode($value),
-                                    ]);
-                                    break;
-
-                                // Greater or equals
-                                case '$gte' :
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' >= %s", [
-                                        $fieldName,
-                                        static::jsonEncode($value),
-                                    ]);
-                                    break;
-
-                                // Greater
-                                case '$gt' :
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' > %s", [
-                                        $fieldName,
-                                        static::jsonEncode($value),
-                                    ]);
-                                    break;
-
-                                // Lower or equals
-                                case '$lte' :
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' <= %s", [
-                                        $fieldName,
-                                        static::jsonEncode($value),
-                                    ]);
-                                    break;
-
-                                // Lower
-                                case '$lt' :
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' < %s", [
-                                        $fieldName,
-                                        static::jsonEncode($value),
-                                    ]);
-                                    break;
-
-                                // In array
-                                // When db value is an array, this evaluates to false
-                                // Could use JSON_OVERLAPS but it's MySQL 8+
-                                case '$in':
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' IN (%s)", [
-                                        $fieldName,
-                                        implode(', ', array_map('static::jsonEncode', $value)),
-                                    ]);
-                                    /*
-                                    $sqlWhereGroupSubSegments[] = vsprintf("JSON_OVERLAPS(`c`.`document` -> '$.%s', %s)", [
-                                        $fieldName,
-                                        $this->connection->quote(static::jsonEncode($value)),
-                                    ]);
-                                    */
-                                    break;
-
-                                // Not in array
-                                case '$nin':
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' NOT IN (%s)", [
-                                        $fieldName,
-                                        implode(', ', array_map('static::jsonEncode', $value)),
-                                    ]);
-                                    break;
-
-                                // Reverse $in: lookup value in table
-                                case '$has': // value is scalar
-                                // Same array values
-                                // Doesn't use MEMBER OF as it's MySQL 8+
-                                case '$all': // value is an array
-                                    if ($mongoOperator === '$has' && is_array($value)) {
-                                        throw new InvalidArgumentException('Invalid argument for $has array not supported');
-                                    }
-
-                                    if ($mongoOperator === '$all' && !is_array($value)) {
-                                        throw new InvalidArgumentException('Invalid argument for $all option must be array');
-                                    }
-
-                                    $sqlWhereGroupSubSegments[] = vsprintf("JSON_CONTAINS(`c`.`document`, %s, '$.%s')", [
-                                        $this->connection->quote(static::jsonEncode($value)),
-                                        $fieldName,
-                                    ]);
-                                    break;
-
-                                /*
-                                // Alternative implementation
-                                case '$all':
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' = JSON_ARRAY(%s)", [
-                                        $fieldName,
-                                        implode(',', array_map('static::jsonEncode', $value)),
-                                    ]);
-                                    break;
-                                */
-
-                                // Regexp (cockpit default is case sensitive)
-                                // Note: ^ doesn't work
-                                case '$preg':
-                                case '$match':
-                                case '$regex':
-                                    $sqlWhereGroupSubSegments[] = vsprintf("LOWER(`c`.`document` -> '$.%s') REGEXP LOWER(%s)", [
-                                        $fieldName,
-                                        static::jsonEncode($value),
-                                    ]);
-                                    break;
-
-                                // Array size
-                                case '$size':
-                                    $sqlWhereGroupSubSegments[] = vsprintf("JSON_LENGTH(`c`.`document`, '$.%s') = %s", [
-                                        $fieldName,
-                                        static::jsonEncode($value),
-                                    ]);
-                                    break;
-
-                                // Mod Mote: MongoLite uses arrays' first key for value
-                                case '$mod':
-                                    if (!is_array($value)) {
-                                        throw new InvalidArgumentException('Invalid argument for $mod option must be array');
-                                    }
-
-                                    $value = array_keys($value)[0];
-                                    $sqlWhereGroupSubSegments[] = vsprintf("MOD(`c`.`document` -> '$.%s', %s) = 0", [
-                                        $fieldName,
-                                        static::jsonEncode($value),
-                                    ]);
-                                    break;
-
-                                // User defined function
-                                case '$func':
-                                case '$fn':
-                                case '$f':
-                                    throw new InvalidArgumentException(sprintf('Function %s not supported by database driver', $mongoOperator), 1);
-
-                                // Path exists
-                                // Warning: doesn't check if key exists
-                                case '$exists':
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' %s NULL", [
-                                        $fieldName,
-                                        $value ? 'IS NOT' : 'IS'
-                                    ]);
-                                    break;
-
-                                // Fuzzy search
-                                // Note: PHP produces 4 char string while MySQL longer ones
-                                // Note: no idea how to implement. SOUNDEX doesn't search in strings.
-                                case '$fuzzy':
-                                    throw new InvalidArgumentException(sprintf('Function %s not supported by database driver', $mongoOperator), 1);
-
-                                // Text search
-                                case '$text':
-                                    if (is_array($value)) {
-                                        throw new InvalidArgumentException(sprintf('Options for %s function are not suppored by database driver', $mongoOperator), 1);
-                                    }
-
-                                    $sqlWhereGroupSubSegments[] = vsprintf("`c`.`document` -> '$.%s' LIKE %s", [
-                                        $fieldName,
-                                        // Escape MySQL placeholders
-                                        static::jsonEncode('%' . strtr($value, [
-                                            '_' => '\\_',
-                                            '%' => '\\%'
-                                        ]) . '%'),
-                                    ]);
-                                    /*
-                                    // Search in array or string (case sensitive)
-                                    $sqlWhereGroupSubSegments[] = vsprintf("JSON_SEARCH(`c`.`document`, 'one', %s, NULL, '$.%s') IS NOT NULL", [
-                                        static::jsonEncode('%' . strtr($value, [
-                                            '_' => '\\_',
-                                            '%' => '\\%'
-                                        ]) . '%'),
-                                        $fieldName,
-                                    ]);
-                                    */
-
-                                    break;
-
-                                // Skip Mongo specific stuff
-                                case '$options':
-                                    continue 2;
-
-                                // Bail out on non-supported operator
-                                default:
-                                    throw new ErrorException(sprintf('Condition not valid ... Use %s for custom operations', $mongoOperator));
-                            }
-                        }
-
-                        // Join conditions
-                        switch (count($sqlWhereGroupSubSegments)) {
-                            case 0:
-                                break;
-                            case 1:
-                                $sqlWhereGroupSegments[] = $sqlWhereGroupSubSegments[0];
-                                break;
-                            default:
-                                $sqlWhereGroupSegments[] = '(' . join(' AND ', $sqlWhereGroupSubSegments) . ')';
-                                break;
-                        }
-                    }
-                }
-
-                // Pick up proper group operator
-                switch ($key) {
-                    // case '$and':
-                    case '$or':
-                        $sqlGroupSegmentsOperator = 'OR';
-                        break;
-
-                    case '$and':
-                    default:
-                        $sqlGroupSegmentsOperator = 'AND';
-                        break;
-                }
-
-                $sqlWhereSegments[] = '(' . implode(' ' . $sqlGroupSegmentsOperator . ' ', $sqlWhereGroupSegments) . ')';
-            }
-        }
-
-        $sqlWhere = !empty($sqlWhereSegments)
-            ? 'WHERE ' . implode(' AND ', $sqlWhereSegments)
-            : '';
+        $sqlWhere = !is_callable($options['filter'])
+            ? $this->queryBuilder->buildWhere($options['filter'])
+            : null;
 
         // Order by
-        $sqlOrderBySegments = [];
-
-        if (isset($options['sort'])) {
-            foreach ($options['sort'] as $key => $value) {
-                $sqlOrderBySegments[] = vsprintf("`c`.`document` -> '$.%s' %s", [
-                    $key,
-                    $value == 1 ? 'ASC' : 'DESC'
-                ]);
-            }
-        }
-
-        $sqlOrderBy = !empty($sqlOrderBySegments)
-            ? 'ORDER BY ' . implode(', ', $sqlOrderBySegments)
-            : '';
+        $sqlOrderBy = $this->queryBuilder->buildOrderby($options['sort']);
 
         // Limit and offset for filter which is not a callable
-        if (!isset($options['filter']) || !is_callable($options['filter'])) {
-            // Limit
-            $sqlLimit = isset($options['limit'])
-                ? sprintf('LIMIT %d', $options['limit'])
-                : '';
+        $sqlLimit = !is_callable($options['filter'])
+            ? $this->queryBuilder->buildLimit($options['limit'], $options['skip'])
+            : null;
 
-            // Offset (limit must be provided)
-            // https://stackoverflow.com/questions/255517/mysql-offset-infinite-rows
-            if (isset($options['limit']) && isset($options['skip'])) {
-                $sqlLimit = sprintf('LIMIT %d OFFSET %d', $options['limit'], $options['skip']);
-            }
-        } else {
-            $sqlLimit = '';
-        }
 
-        // Build query (TODO: probably just document is enough)
+        // Build query
         $sql = <<<SQL
 
             SELECT
@@ -470,22 +197,22 @@ class Driver implements DriverInterface
 SQL;
 
         $stmt = $this->connection->prepare($sql);
+
         $stmt->execute();
 
         $items = [];
 
-        if (isset($options['filter']) && is_callable($options['filter'])) {
+        // Callback filter
+        if (is_callable($options['filter'])) {
             $index = 0;
-            $skip = $options['skip'] ?? null;
-            $limit = $options['limit'] ?? null;
 
             while ($result = $stmt->fetch()) {
-                $item = static::jsonDecode($result);
+                $item = QueryBuilder::jsonDecode($result);
 
                 // Evaluate criteria, must return boolean
                 if ($options['filter']($item)) {
                     // Skip
-                    if (!$skip || $index >= $skip) {
+                    if (!$options['skip'] || $index >= $options['skip']) {
                         $items[] = $item;
                     }
 
@@ -493,13 +220,13 @@ SQL;
                 }
 
                 // Limit Limit
-                if ($limit && count($items) >= $limit) {
+                if ($options['limit'] && count($items) >= $options['limit']) {
                     break;
                 }
             }
         } else {
             foreach ($stmt->fetchAll() as $result) {
-                $items[] = static::jsonDecode($result);
+                $items[] = QueryBuilder::jsonDecode($result);
             }
         }
 
@@ -519,7 +246,7 @@ SQL;
 
             // Process items
             foreach ($items as &$item) {
-                $item = static::processItemProjection($item, $exclude, $include);
+                $item = static::updateItemProjection($item, $exclude, $include);
             }
         }
 
@@ -531,7 +258,7 @@ SQL;
      * @param string $collection - ie cockpit/accounts
      * @param array $criteria - ie ['active' => true, 'user' => 'piotr']
      */
-    public function findOne(string $collectionId, $criteria = [], array $projection = []): ?array
+    public function findOne(string $collectionId, $criteria = null, array $projection = []): ?array
     {
         $results = $this->find($collectionId, [
             'filter' => $criteria,
@@ -578,7 +305,7 @@ SQL
         );
 
         $stmt->execute([
-            ':data' => static::jsonEncode($data)
+            ':data' => QueryBuilder::jsonEncode($data)
         ]);
 
         return true;
@@ -587,12 +314,42 @@ SQL
     /**
      * @inheritdoc
      */
-    public function save(string $collectionId, array &$data, bool $isCreate = false): bool
+    public function save(string $collectionId, array &$data): bool
     {
         // It's an insert
         if (!isset($data['_id'])) {
             return $this->insert($collectionId, $data);
         }
+
+        return $this->update($collectionId, null, $data);
+    }
+
+    /**
+     * @inheritdoc
+     * TODO: Use criteria
+     */
+    public function update(string $collectionId, $criteria = null, array $data): bool
+    {
+        $stmt = $this->connection->prepare(<<<SQL
+
+            UPDATE
+                `{$collectionId}` AS `c`
+            SET
+                `c`.`document` = :data
+            WHERE
+                `c`.`document` -> '$._id' = :itemId
+SQL
+        );
+
+        $stmt->execute([
+            ':itemId' => $data['_id'],
+            ':data' => QueryBuilder::jsonEncode($data),
+        ]);
+
+        return true;
+
+        /*
+        // Doesn't work with rename and remove field
 
         // Createa array of key, value segments for JSON_SET
         $sqlSetSubSegments = [];
@@ -610,7 +367,7 @@ SQL
 
             $sqlSetSubSegments[] = vsprintf("'$.%s', %s", [
                 $key,
-                static::createSqlJsonValue($value)
+                static::createSqlJsonSetValue($value)
             ]);
         }
 
@@ -634,16 +391,7 @@ SQL
         $stmt->execute([':itemId' => $data['_id']]);
 
         return true;
-    }
-
-    /**
-     * @inheritdoc
-     * TODO: Use criteria
-     */
-    public function update(string $collectionId, array $criteria, array $data): bool
-    {
-        die('update');
-        return true;
+        */
     }
 
     /**
@@ -670,11 +418,11 @@ SQL
     /**
      * @inheritdoc
      */
-    public function count(string $collectionId, array $criteria = null): int
+    public function count(string $collectionId, $criteria = null): int
     {
         // ATM use ::find method instead of SELECT COUNT(*)
         $results = $this->find($collectionId, [
-            'filter' => $criteria ?? []
+            'filter' => $criteria
         ]);
 
         return count($results);
@@ -758,31 +506,14 @@ SQL
     }
 
     /**
-     * Encode value helper
-     */
-    protected static function jsonEncode($value): string
-    {
-        // Slashes are nomalized by MySQL anyway
-        return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
-
-    /**
-     * Decode value helper
-     */
-    protected static function jsonDecode(string $string)
-    {
-        return json_decode($string, true);
-    }
-
-    /**
      * Create sql json value
      * @param mixed $value
      * @return string
      */
-    public static function createSqlJsonValue($value): string
+    protected static function createSqlJsonSetValue($value): string
     {
         if (is_scalar($value) || is_null($value)) {
-            return static::jsonEncode($value);
+            return QueryBuilder::jsonEncode($value);
         }
 
         // Cannot work with non-arrays yet
@@ -799,7 +530,7 @@ SQL
 
             // List of values
             foreach ($value as $subValue) {
-                $jsonValues[] = static::createSqlJsonValue($subValue);
+                $jsonValues[] = static::createSqlJsonSetValue($subValue);
             }
         // Associative array
         } else {
@@ -808,7 +539,7 @@ SQL
             // List of pairs: key, value
             foreach ($value as $subKey => $subValue) {
                 $jsonValues[] = vsprintf('%s, %s', [
-                    static::jsonEncode($subKey),
+                    QueryBuilder::jsonEncode($subKey),
                     static::createSqlJsonValue($subValue)
                 ]);
             }
@@ -824,7 +555,7 @@ SQL
      * @param array $include
      * @return array
      */
-    protected static function processItemProjection(array $item, array $exclude, array $include): array
+    protected static function updateItemProjection(array $item, array $exclude, array $include): array
     {
         $id = $item['_id'];
 

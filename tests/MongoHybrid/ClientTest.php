@@ -191,12 +191,26 @@ SQL
      */
     public function testFindFilterOperators(): void
     {
-        /*
-        // TODO: no operators
+        // No operators
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => ['_o' => ['$eq' => 2]]
         ]);
-        */
+
+        $this->assertTrue(
+            count($items) && $items[0]['_o'] === 2
+        );
+
+        // Non-doumented and
+        $items = static::$storage->find($this->mockCollectionId, [
+            'filter' => ['content' => [
+                '$eq' => 'Etiam tempor',
+                '$regex' => 'Etiam',
+            ]]
+        ]);
+
+        $this->assertTrue(
+            count($items) && $items[0]['_o'] === 2
+        );
 
         // Assert $and operator
         $items = static::$storage->find($this->mockCollectionId, [
@@ -297,9 +311,7 @@ SQL
         // Assert $eq func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['content' => ['$eq' => 'Etiam tempor']],
-                ],
+                'content' => ['$eq' => 'Etiam tempor'],
             ]
         ]);
 
@@ -310,9 +322,7 @@ SQL
         // Assert $not/ $ne func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['content' => ['$not' => 'Etiam tempor']],
-                ],
+                'content' => ['$not' => 'Etiam tempor'],
             ]
         ]);
 
@@ -325,9 +335,7 @@ SQL
         // Assert $gt func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['_o' => ['$gt' => 1]]
-                ]
+                '_o' => ['$gt' => 1],
             ]
         ]);
 
@@ -340,9 +348,7 @@ SQL
         // Assert $in func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['_o' => ['$in' => [2, 3]]]
-                ]
+                '_o' => ['$in' => [2, 3]],
             ]
         ]);
 
@@ -355,9 +361,7 @@ SQL
         // Assert $nin func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['_o' => ['$nin' => [2, 3]]]
-                ]
+                '_o' => ['$nin' => [2, 3]],
             ]
         ]);
 
@@ -370,9 +374,7 @@ SQL
         // Assert $has func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['array' => ['$has' => 'foo']]
-                ]
+                'array' => ['$has' => 'foo'],
             ]
         ]);
 
@@ -385,9 +387,7 @@ SQL
         // Assert $all func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['array' => ['$all' => ['foo', 'bar']]]
-                ]
+                'array' => ['$all' => ['foo', 'bar']],
             ]
         ]);
 
@@ -400,9 +400,7 @@ SQL
         // Assert $preg/ $match/ $regex func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['content' => ['$regex' => 'Lorem.*']]
-                ]
+                'content' => ['$regex' => 'Lorem.*'],
             ]
         ]);
 
@@ -415,9 +413,7 @@ SQL
         // Assert $size func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['array' => ['$size' => 2]]
-                ]
+                'array' => ['$size' => 2],
             ]
         ]);
 
@@ -430,10 +426,8 @@ SQL
         // Assert $mod func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['_o' => ['$mod' => [2 => null]]]
-                    // ['_o' => ['$mod' => 2]]
-                ]
+                '_o' => ['$mod' => [2 => null]],
+                // '_o' => ['$mod' => 2],
             ]
         ]);
 
@@ -449,9 +443,7 @@ SQL
         // Not implemented in MysqlJson
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['_o' => ['$func' => function (array $item): bool { return $item['_o'] === 2; }]]
-                ]
+                '_o' => ['$func' => function (array $item): bool { return $item['_o'] === 2; }],
             ]
         ]);
 
@@ -465,9 +457,7 @@ SQL
         // Assert $exists func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['_o' => ['$exists' => true]]
-                ]
+                '_o' => ['$exists' => true],
             ]
         ]);
 
@@ -482,9 +472,7 @@ SQL
         try {
             $items = static::$storage->find($this->mockCollectionId, [
                 'filter' => [
-                    '$and' => [
-                        ['content' => ['$fuzzy' => 'temp']]
-                    ]
+                    'content' => ['$fuzzy' => 'temp'],
                 ]
             ]);
 
@@ -503,9 +491,7 @@ SQL
         // Assert $text func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '$and' => [
-                    ['content' => ['$text' => 'Etiam tempo']]
-                ]
+                'content' => ['$text' => 'Etiam tempo'],
             ]
         ]);
 
@@ -680,7 +666,7 @@ SQL
     /**
      * @covers \MongoHybridClient::removeField
      */
-    public function TODOtestRemoveField()
+    public function testRemoveField()
     {
         static::$storage->removeField($this->mockCollectionId, 'content');
 
@@ -694,7 +680,7 @@ SQL
     /**
      * @covers \MongoHybridClient::renameField
      */
-    public function TODOtestRenameField()
+    public function XXXtestRenameField()
     {
         static::$storage->renameField($this->mockCollectionId, 'content', 'bio');
 

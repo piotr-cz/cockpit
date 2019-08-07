@@ -45,7 +45,7 @@ interface DriverInterface
      * Wrapper around CollectionInterface::findOne
      * @deprecated use DriverInterface::getCollection()->findOne()
      */
-    public function findOne(string $collectionId, $criteria, array $projection = []): ?array;
+    public function findOne(string $collectionId, $criteria = null, array $projection = []): ?array;
 
     /**
      * Used by \MongoHybrid\ResultSet::hasOne
@@ -63,15 +63,14 @@ interface DriverInterface
      * @param array &$data {
      *   @param string [$id]
      * }
-     * @param bool $isCreate
      * @return bool
      */
-    public function save(string $collectionId, array &$data, bool $isCreate = false): bool;
+    public function save(string $collectionId, array &$data): bool;
 
     /**
      * Not used directly, only via DriverInterface::save
      */
-    public function update(string $collectionId, array $criteria, array $data): bool;
+    public function update(string $collectionId, $criteria = null, array $data): bool;
 
     /**
      * Remove item
@@ -86,7 +85,7 @@ interface DriverInterface
     /**
      * Used
      */
-    public function count(string $collectionId, array $criteria = null): int;
+    public function count(string $collectionId, $criteria = null): int;
 
     /**
      * Remove field in collection items (used by CLI)
