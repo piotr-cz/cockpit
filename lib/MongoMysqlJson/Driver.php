@@ -131,6 +131,11 @@ class Driver implements DriverInterface
             $this->collections[$collectionFulllId] = new Collection($collectionFulllId, $this->connection);
         }
 
+        // Workaround for drop via MongoHybrid\Client::dropCollecion
+        if ($this->collections[$collectionFulllId]->isDropped) {
+            $this->collections[$collectionFulllId]->create();
+        }
+
         return $this->collections[$collectionFulllId];
     }
 
@@ -420,12 +425,34 @@ SQL
      */
     public function count(string $collectionId, $criteria = null): int
     {
-        // ATM use ::find method instead of SELECT COUNT(*)
-        $results = $this->find($collectionId, [
-            'filter' => $criteria
-        ]);
+        $this->getCollection($collectionId);
 
-        return count($results);
+        // On user defined function must use find
+        if (is_callable($criteria)) {
+            return count($this->find($collectionId, [
+                'filter' => $criteria
+            ]));
+        }
+
+        $sqlWhere = $this->queryBuilder->buildWhere($criteria);
+
+        $sql = <<<SQL
+
+            SELECT
+                COUNT(`c`.`document`)
+
+            FROM
+                `{$collectionId}` AS `c`
+
+            $sqlWhere
+SQL
+        ;
+
+        $stmt = $this->connection->prepare($sql);
+
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
     }
 
     /**

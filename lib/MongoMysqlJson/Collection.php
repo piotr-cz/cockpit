@@ -25,6 +25,8 @@ class Collection implements CollectionInterface
     /** @var \PDO - connection */
     protected $connection;
 
+    public $isDropped = false;
+
     /**
      * Constructor
      */
@@ -121,6 +123,8 @@ SQL
 
         $stmt->execute();
 
+        $this->isDropped = true;
+
         return true;
     }
 
@@ -141,7 +145,27 @@ SQL
             return;
         }
 
-/*
+        $this->create();
+
+        return;
+    }
+
+    public function create()
+    {
+        $stmt = $this->connection->prepare(<<<SQL
+
+            CREATE TABLE IF NOT EXISTS `{$this->id}` (
+                `id`       INT  NOT NULL AUTO_INCREMENT,
+                `document` JSON NOT NULL,
+                `_id_virtual`       VARCHAR(24) AS (`document` ->> '$._id')                      NOT NULL UNIQUE COMMENT 'Id',
+                `_created_virtual`  TIMESTAMP   AS (FROM_UNIXTIME(`document` ->> '$._created'))  NOT NULL        COMMENT 'Created at',
+                `_modified_virtual` TIMESTAMP   AS (FROM_UNIXTIME(`document` ->> '$._modified'))     NULL        COMMENT 'Modified at',
+                PRIMARY KEY (`id`)
+            )
+SQL
+        );
+
+        /*
         // keyval (cockpit.memory.sqlite) has different signature
         if ($this->id === 'cockpit.memory') {
             $stmt = $this->connection->prepare(<<<SQL
@@ -154,21 +178,9 @@ SQL
 SQL
             );
         }
-*/
-
-        $stmt = $this->connection->prepare(<<<SQL
-
-            CREATE TABLE IF NOT EXISTS `{$this->id}` (
-                `id`       INT  NOT NULL AUTO_INCREMENT,
-                `document` JSON NOT NULL,
-                PRIMARY KEY (`id`)
-            )
-SQL
-        );
+        */
 
         $stmt->execute();
-
-        return;
     }
 
     /**
