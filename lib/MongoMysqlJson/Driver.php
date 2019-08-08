@@ -123,12 +123,7 @@ class Driver implements DriverInterface
         $collectionFulllId = static::getCollectionFullId($collectionId, $db);
 
         if (!isset($this->collections[$collectionFulllId])) {
-            $this->collections[$collectionFulllId] = new Collection($collectionFulllId, $this->connection);
-        }
-
-        // Workaround for drop via MongoHybrid\Client::dropCollecion
-        if ($this->collections[$collectionFulllId]->isDropped) {
-            $this->collections[$collectionFulllId]->create();
+            $this->collections[$collectionFulllId] = new Collection($collectionFulllId, $this->connection, $this);
         }
 
         return $this->collections[$collectionFulllId];
@@ -136,11 +131,23 @@ class Driver implements DriverInterface
 
     /**
      * @inheritdoc
+     *
+     * [NOT USED]
      */
     public function dropCollection(string $collectionId, string $db = null): void
     {
-        // TODO: remove from collections cache
         die('dropCollection');
+    }
+
+    /**
+     * Handle collection drop
+     *
+     * @param string $collectionFullId
+     */
+    public function handleCollectionDrop($collectionFullId): void
+    {
+        // Unset from cache
+        unset($this->collections[$collectionFullId]);
     }
 
     /**

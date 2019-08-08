@@ -6,6 +6,7 @@ namespace MongoMysqlJson;
 
 use PDO;
 
+use \MongoMysqlJson\DriverInterface;
 use \MongoMysqlJson\CollectionInterface;
 
 /**
@@ -25,15 +26,17 @@ class Collection implements CollectionInterface
     /** @var \PDO - connection */
     protected $connection;
 
-    public $isDropped = false;
+    /** @var \MongoMysqlJson\DriverInterface */
+    protected $driver;
 
     /**
      * Constructor
      */
-    public function __construct(string $id, PDO $connection)
+    public function __construct(string $id, PDO $connection, DriverInterface $driver)
     {
         $this->id = $id;
         $this->connection = $connection;
+        $this->driver = $driver;
 
         $this->createIfNotExists();
     }
@@ -96,18 +99,20 @@ SQL;
      *
      * [NOT USED]
      */
-    public function renameCollection(string $newname): bool
+    public function renameCollection(string $newId): bool
     {
         $stmt = $this->connection->prepare(<<<SQL
 
             RENAME TABLE
                 `{$this->id}`
             TO
-                `{$newname}`
+                `{$newId}`
 SQL
         );
 
         $stmt->execute();
+
+        $this->id = $newId;
 
         return true;
     }
@@ -126,7 +131,7 @@ SQL
 
         $stmt->execute();
 
-        $this->isDropped = true;
+        $this->driver->handleCollectionDrop($this->id);
 
         return true;
     }
@@ -148,16 +153,6 @@ SQL
             return;
         }
 
-        $this->create();
-
-        return;
-    }
-
-    /**
-     * Create collection
-     */
-    public function create()
-    {
         $stmt = $this->connection->prepare(<<<SQL
 
             CREATE TABLE IF NOT EXISTS `{$this->id}` (
