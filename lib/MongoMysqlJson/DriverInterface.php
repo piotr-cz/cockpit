@@ -12,6 +12,7 @@ interface DriverInterface
 {
     /**
      * Get collection by id
+     *
      * @param string $collectionId - Collection ID
      * @param string $db - Database alternative name
      * @return \MysqlJson\CollectionInterface
@@ -27,6 +28,7 @@ interface DriverInterface
 
     /**
      * Wrapper around CollectionInterface::find
+     *
      * @deprecated use DriverInterface::getCollection()->find()
      *
      * @param string collectionId - Collection ID
@@ -43,6 +45,7 @@ interface DriverInterface
 
     /**
      * Wrapper around CollectionInterface::findOne
+     *
      * @deprecated use DriverInterface::getCollection()->findOne()
      */
     public function findOne(string $collectionId, $criteria = null, array $projection = []): ?array;
@@ -59,6 +62,7 @@ interface DriverInterface
 
     /**
      * Insert or update, depending on $data['_id']
+     *
      * @param string $collectionId
      * @param array &$data {
      *   @param string [$id]
@@ -74,6 +78,7 @@ interface DriverInterface
 
     /**
      * Remove item
+     *
      * @param string $collectionId
      * @param array $criteria {
      *   @var string $_id
@@ -89,6 +94,7 @@ interface DriverInterface
 
     /**
      * Remove field in collection items (used by CLI)
+     *
      * @see #504bc559af
      *
      * @param string $collectionId
@@ -101,6 +107,7 @@ interface DriverInterface
 
     /**
      * Rename field in collection items (used by CLI)
+     *
      * @see #76f9054307
      *
      * @param string $collectionId

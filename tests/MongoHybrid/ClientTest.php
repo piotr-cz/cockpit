@@ -1,8 +1,6 @@
 <?php
 namespace Test\MongoHybrid;
 
-use PDO;
-
 use InvalidArgumentException;
 
 use PHPUnit\Framework\TestCase;
@@ -15,13 +13,13 @@ class ClientTest extends TestCase
     /** @var \MongoHybrid\Client - Storage client */
     protected static $storage;
 
-    /** @var \PDO */
+    /** @var \PDO - PDO Connection */
     protected static $connection;
 
-    /** @var string */
+    /** @var string - Mock collection id pattern */
     protected static $mockCollectionIdPattern = 'collections/test%s';
 
-    /** @var array */
+    /** @var array - Mock collection items (no IDs) */
     protected static $mockCollectionItemsDefs = [
         [
             'content' => 'Lorem ipsum',
@@ -39,10 +37,10 @@ class ClientTest extends TestCase
         ]
     ];
 
-    /** @var string */
+    /** @var string - Mock collection id */
     protected $mockCollectionId;
 
-    /** @var array */
+    /** @var array - Mock collection items */
     protected $mockCollectionItems = [];
 
     /**
@@ -60,39 +58,6 @@ class ClientTest extends TestCase
             $databaseConfig['options'],
             $databaseConfig['driverOptions']
         );
-
-        /*
-        // MySQL driver
-        if (static::$storage->type === 'mongomysqljson') {
-            $dns = vsprintf('%s:host=%s;dbname=%s;charset=UTF8', [
-                $databaseConfig['options']['connection'],
-                $databaseConfig['options']['host'],
-                $databaseConfig['options']['db']
-            ]);
-        // SQLite driver
-        } else if (static::$storage->type === 'mongolite') {
-            // $dns = sprintf('sqlite::memory:');
-            $dns = str_replace('mongolite://', 'sqlite:', $databaseConfig['server']) . '/collections.sqlite';
-        // Other (mongodb)
-        } else {
-            throw new InvalidArgumentException('Driver not supported');
-        }
-
-        // Create inpection connection, same as defined in config
-        static::$connection = new PDO(
-            $dns,
-            $databaseConfig['options']['username'] ?? null,
-            $databaseConfig['options']['password'] ?? null,
-            $databaseConfig['driverOptions']
-        );
-
-        // Configure sqlite
-        if (static::$connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-            static::$connection->exec('PRAGMA journal_mode = MEMORY');
-            static::$connection->exec('PRAGMA synchronous = OFF');
-            static::$connection->exec('PRAGMA PAGE_SIZE = 4096');
-        }
-        */
     }
 
     /**
@@ -100,29 +65,11 @@ class ClientTest extends TestCase
      */
     protected function setUp(): void
     {
-
         // Create new collection for each test to avoid conflicts
         $this->mockCollectionId = sprintf(static::$mockCollectionIdPattern, uniqid());
 
         // Create collection via storage
         static::$storage->getCollection($this->mockCollectionId);
-
-        /*
-        // Add mock data
-        $stmt = static::$connection->prepare(<<<SQL
-
-            INSERT INTO
-                `{$this->mockCollectionId}` (`document`)
-            VALUES (
-                :item
-            )
-SQL
-        );
-
-        foreach (static::$mockCollectionItemsDefs as $mockCollectionItem) {
-            $stmt->execute([':item' => json_encode($mockCollectionItem, JSON_UNESCAPED_UNICODE)]);
-        }
-        */
 
         // Note: using storage insert creates new IDs
         foreach (static::$mockCollectionItemsDefs as $mockCollectionItem) {
@@ -133,13 +80,8 @@ SQL
     }
 
     /**
-     * @inheritdoc
-     */
-    protected function assertPreConditions(): void
-    {
-    }
-
-    /**
+     * Test drop collection
+     *
      * Can test only by checking database via raw connection
      * However SQLite doesn't work fine with additional connections (file lock)
      * @covers \MongoHybrid\Client::dropCollection
@@ -157,6 +99,7 @@ SQL
 
     /**
      * Test find
+     *
      * @covers \MongoHybrid\Client::find
      */
     public function testFind(): void
@@ -168,6 +111,7 @@ SQL
 
     /**
      * Test find with filter
+     *
      * @covers \MongoHybrid\Client::find
      */
     public function testFindFilter(): void
@@ -185,6 +129,7 @@ SQL
 
     /**
      * Test filter operators
+     *
      * @covers \MongoHybrid\Client::find
      */
     public function testFindFilterOperators(): void
@@ -198,6 +143,7 @@ SQL
             count($items) && $items[0]['_o'] === 2
         );
 
+
         // Non-doumented and
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => ['content' => [
@@ -209,6 +155,7 @@ SQL
         $this->assertTrue(
             count($items) && $items[0]['_o'] === 2
         );
+
 
         // Assert $and operator
         $items = static::$storage->find($this->mockCollectionId, [
@@ -290,6 +237,7 @@ SQL
     /**
      * Test filter callback (not implemented in MongoDB Driver)
      * Doesn't work on MongoDB
+     *
      * @covers \MongoHybrid\Client::find
      */
     public function testFindFilterCallback()
@@ -341,6 +289,7 @@ SQL
 
     /**
      * Test filter funcs
+     *
      * @covers \MongoHybrid\Client::find
      */
     public function testFindFilterFuncs()
@@ -370,10 +319,6 @@ SQL
             count($items) && $items[0]['content'] === 'Lorem ipsum',
             'Failed $neq for string'
         );
-
-
-        // Assert $not - MongoDB has different implementation for $not than $ne
-        // see https://docs.mongodb.com/manual/reference/operator/query/not/
 
 
         // Assert $gt func
@@ -563,6 +508,7 @@ SQL
     /**
      * Test find with fields (projection)
      * Returned items have added/ removed properties
+     *
      * @covers \MongoHybrid\Client::find
      */
     public function testFindFields(): void
@@ -598,6 +544,7 @@ SQL
 
     /**
      * Test find with limit
+     *
      * @covers \MongoHybrid\Client::find
      */
     public function testFindLimit(): void
@@ -611,6 +558,7 @@ SQL
 
     /**
      * Test find with sort
+     *
      * @covers \MongoHybrid\Client::find
      */
     public function testFindSort(): void
@@ -624,6 +572,7 @@ SQL
 
     /**
      * Test find with skip
+     *
      * @covers \MongoHybrid\Client::find
      */
     public function testFindSkip(): void
@@ -638,6 +587,7 @@ SQL
 
     /**
      * Test find one item
+     *
      * @covers \MongoHybrid\Client::findOne
      */
     public function testFindOne(): void
@@ -664,6 +614,7 @@ SQL
 
     /**
      * Test save
+     *
      * @covers \MongoHybrid\Client::save
      * @covers \MongoHybrid\Client::insert
      * @covers \MongoHybrid\Client::update
@@ -703,6 +654,7 @@ SQL
 
     /**
      * Test remove
+     *
      * @covers \MongoHybrid\Client::remove
      */
     public function testRemove(): void
@@ -718,6 +670,7 @@ SQL
 
     /**
      * Test count
+     *
      * @covers \MongoHybrid\Client::count
      */
     public function testCount()
@@ -728,6 +681,8 @@ SQL
     }
 
     /**
+     * Test remove field
+     *
      * @covers \MongoHybridClient::removeField
      */
     public function testRemoveField()
@@ -742,9 +697,11 @@ SQL
     }
 
     /**
+     * Test rename field
+     *
      * @covers \MongoHybridClient::renameField
      */
-    public function XXXtestRenameField()
+    public function testRenameField()
     {
         static::$storage->renameField($this->mockCollectionId, 'content', 'bio');
 

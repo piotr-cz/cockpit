@@ -46,6 +46,7 @@ interface CollectionInterface
 
     /**
      * Update documents
+     *
      * @param callable|array $criteria
      * @param array $data
      * @param bool $isMerge
@@ -54,6 +55,7 @@ interface CollectionInterface
 
     /**
      * Remove document
+     *
      * @param callable|array $criteria
      * @return bool
      */
@@ -73,7 +75,7 @@ interface CollectionInterface
      * Rename collection
      * [called directly]
      *
-     * TODO: Move to Driver::renameCollection
+     * @todo Move to Driver::renameCollection
      * @param  string $newname
      * @return boolean
      */
@@ -82,7 +84,7 @@ interface CollectionInterface
     /**
      * Drop collection
      * [called directly]
-     * TODO: Move usage to Driver::DropCollection
+     * @todo Move usage to Driver::DropCollection
      */
     public function drop(): bool;
 }

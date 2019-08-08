@@ -24,7 +24,6 @@ use \MongoMysqlJson\ {
  * Quirks:
  * - MySQL normalizes (orders by key) JSON objects on insert
  * - Requires 5.7.9+ (JSON support and shorthand operators)
- * );
  */
 class Driver implements DriverInterface
 {
@@ -41,10 +40,13 @@ class Driver implements DriverInterface
     protected $queryBuilder;
 
     /**
+     * Constructor
+     *
      * @param array $options {
-     *   @var string $connection
-     *   @var string $host
-     *   @var string $db
+     *   @var string [$host]
+     *   @var int [$port]
+     *   @var string $dbname
+     *   @var string [$charset]
      *   @var string $username
      *   @var string $password
      * }
@@ -87,6 +89,7 @@ class Driver implements DriverInterface
 
     /**
      * Assert features are supported by database
+     *
      * @throws \MysqlJson\DriverException
      */
     public function assertIsSupported(): void
@@ -98,7 +101,6 @@ class Driver implements DriverInterface
 
         // Check version
         $currentMysqlVersion = $this->connection->getAttribute(PDO::ATTR_SERVER_VERSION);
-        // $currentMysqlVersion = $this->connection->query('SELECT VERSION()')->fetch(PDO::FETCH_COLUMN);
 
         if (!version_compare($currentMysqlVersion, static::DB_MIN_SERVER_VERSION, '>=')) {
             throw new DriverException(vsprintf('Driver requires MySQL version >= %s, got %s', [
@@ -111,15 +113,8 @@ class Driver implements DriverInterface
     }
 
     /**
-     * Get connection to use in tests
-     */
-    public function getConnection(): PDO
-    {
-        return $this->connection;
-    }
-
-    /**
      * @inheritdoc
+     *
      * Doesn't separate collection and databse
      */
     public function getCollection(string $collectionId, string $db = null): CollectionInterface
@@ -150,6 +145,7 @@ class Driver implements DriverInterface
 
     /**
      * Find collection items
+     *
      * @param string $collectionId - ie. collections/performers5d417617d3b77
      * @param array $options {
      *   @var array|callable|null $filter - Filter results by (criteria)
@@ -260,6 +256,7 @@ SQL;
 
     /**
      * Find item
+     *
      * @param string $collection - ie cockpit/accounts
      * @param array $criteria - ie ['active' => true, 'user' => 'piotr']
      */
@@ -284,6 +281,7 @@ SQL;
 
     /**
      * Insert, may be invoked by save
+     *
      * @param string $collectionId - ie. cockpit/revisions
      * @param arary $data {
      *   @var string $_oid
@@ -331,7 +329,8 @@ SQL
 
     /**
      * @inheritdoc
-     * TODO: Use criteria
+     *
+     * @todo Use criteria
      */
     public function update(string $collectionId, $criteria = null, array $data): bool
     {
@@ -499,6 +498,7 @@ SQL
 
     /**
      * Get fully qualified collection name (db / id)
+     *
      * @param string $id
      * @param string|null $db
      * @return string
@@ -534,6 +534,7 @@ SQL
 
     /**
      * Create sql json value
+     *
      * @param mixed $value
      * @return string
      */
@@ -577,9 +578,11 @@ SQL
 
     /**
      * Modify item as per projection
+     *
      * @param array $item
      * @param array $exclude
      * @param array $include
+     *
      * @return array
      */
     protected static function updateItemProjection(array $item, array $exclude, array $include): array

@@ -40,6 +40,7 @@ class Collection implements CollectionInterface
 
     /**
      * @inheritdoc
+     *
      * [NOT USED]
      * Note: MongoLite\Collection passes only criteria and projection and expects Cursor
      * TODO: return generator which behaves like \MongoLite\Cusor
@@ -51,6 +52,7 @@ class Collection implements CollectionInterface
 
     /**
      * @inheritdoc
+     *
      * [NOT USED]
      */
     public function findOne($criteria = null, array $projection = null): ?array
@@ -91,6 +93,7 @@ SQL;
 
     /**
      * @inheritdoc
+     *
      * [NOT USED]
      */
     public function renameCollection(string $newname): bool
@@ -150,6 +153,9 @@ SQL
         return;
     }
 
+    /**
+     * Create collection
+     */
     public function create()
     {
         $stmt = $this->connection->prepare(<<<SQL
@@ -181,44 +187,5 @@ SQL
         */
 
         $stmt->execute();
-    }
-
-    /**
-     * Modify item as per projection
-     * @param array $item
-     * @param array $exclude
-     * @param array $include
-     * @return array
-     */
-    protected static function processItemProjection(array $item, array $exclude, array $include): array
-    {
-        // Remove keys
-        if (!empty($exclude)) {
-            $item = array_diff_key($item, $exclude);
-        }
-
-        // Keep keys (not sure why MongoLite::cursor uses custom function array_key_intersect)
-        if (!empty($include)) {
-            $item = array_intersect_key($item, $include);
-        }
-
-        return $item;
-    }
-
-    /**
-     * Encode value helper
-     */
-    protected static function jsonEncode($value): string
-    {
-        // Slashes are nomalized by MySQL anyway
-        return \json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
-
-    /**
-     * Decode value helper
-     */
-    protected static function jsonDecode(string $string)
-    {
-        return \json_decode($string, true);
     }
 }
