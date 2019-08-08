@@ -163,6 +163,9 @@ class Database {
      */
     public function dropCollection($name) {
         $this->connection->exec("DROP TABLE `{$name}`");
+
+        // Remove collection from cache
+        unset($this->collections[$name]);
     }
 
     /**
@@ -407,7 +410,7 @@ class UtilArrayQuery {
             case '$regex' :
             case '$preg' :
             case '$match' :
-                $r = (boolean) @\preg_match(isset($b[0]) && $b[0]=='/' ? $b : '/'.$b.'/i', $a, $match);
+                $r = (boolean) @\preg_match(isset($b[0]) && $b[0]=='/' ? $b : '/'.$b.'/iu', $a, $match);
                 break;
 
             case '$size' :
@@ -418,8 +421,7 @@ class UtilArrayQuery {
             case '$mod' :
                 if (! \is_array($b))
                     throw new \InvalidArgumentException('Invalid argument for $mod option must be array');
-                $x = array_keys($b)[0];
-                $r = $a % $x == 0;
+                $r = $a % $b[0] == $b[1] ?? 0;
                 break;
 
             case '$func' :
