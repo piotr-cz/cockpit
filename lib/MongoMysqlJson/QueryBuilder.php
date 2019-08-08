@@ -11,12 +11,13 @@ class QueryBuilder {
     protected const ORDER_BY_ASC = 1;
     protected const ORDER_BY_DESC = -1;
 
-    protected const GLUE_AND = ' && ';
-    protected const GLUE_OR  = ' || ';
+    // Logical operators
+    protected const GLUE_OPERATOR_AND = ' && ';
+    protected const GLUE_OPERATOR_OR  = ' || ';
 
-    protected const GLUE = [
-        '$and' => self::GLUE_AND,
-        '$or'  => self::GLUE_OR,
+    protected const GLUE_OPERATOR = [
+        '$and' => self::GLUE_OPERATOR_AND,
+        '$or'  => self::GLUE_OPERATOR_OR,
     ];
 
     /** @var callable */
@@ -101,7 +102,7 @@ class QueryBuilder {
      * @param string $concat
      * @return string|null
      */
-    public function buildWhereSegments(array $criteria, string $concat = self::GLUE_AND): ?string
+    public function buildWhereSegments(array $criteria, string $concat = self::GLUE_OPERATOR_AND): ?string
     {
         $whereSegments = [];
 
@@ -114,14 +115,23 @@ class QueryBuilder {
                     $whereSubSegments = [];
 
                     foreach ($value as $subCriteria) {
-                        $whereSubSegments[] = $this->buildWhereSegments($subCriteria, static::GLUE[$key]);
+                        $whereSubSegments[] = $this->buildWhereSegments($subCriteria, static::GLUE_OPERATOR[$key]);
                     }
 
-                    $whereSegments[] = '(' . implode(static::GLUE[$key], $whereSubSegments) . ')';
+                    $whereSegments[] = '(' . implode(static::GLUE_OPERATOR[$key], $whereSubSegments) . ')';
                     break;
 
                 // No operator:
                 default:
+                    // $not operator in values' key, condition in it's value
+                    if (is_array($value) && array_keys($value) == ['$not']) {
+                        $whereSegments[] = 'NOT ' . is_array($value['$not'])
+                            ? $this->buildWhereSegments([$key => $value['$not']])
+                            : $this->buildWhereSegmentsGroup($key, ['$regex' => $value['$not']]);
+                        break;
+                    }
+
+                    // Value
                     $whereSegments[] = $this->buildWhereSegmentsGroup(
                         $key,
                         is_array($value) ? $value : ['$eq' => $value]
@@ -152,7 +162,7 @@ class QueryBuilder {
         // Remove nulls
         $subSegments = array_filter($subSegments);
 
-        return implode(static::GLUE_AND, $subSegments);
+        return implode(static::GLUE_OPERATOR_AND, $subSegments);
     }
 
     /**
@@ -172,7 +182,6 @@ class QueryBuilder {
                 ]);
 
             // Not equals
-            case '$not' :
             case '$ne' :
                 return vsprintf("`c`.`document` -> '$.%s' <> %s", [
                     $fieldName,
@@ -265,7 +274,8 @@ class QueryBuilder {
             case '$regex':
                 return vsprintf("LOWER(`c`.`document` -> '$.%s') REGEXP LOWER(%s)", [
                     $fieldName,
-                    static::jsonEncode($value),
+                    // Escape \ and trim /
+                    static::jsonEncode(trim(str_replace('\\', '\\\\', $value), '/')),
                 ]);
 
             // Array size
@@ -276,16 +286,18 @@ class QueryBuilder {
                 ]);
 
             // Mod Mote: MongoLite uses arrays' first key for value
+            // see https://docs.mongodb.com/manual/reference/operator/query/mod/
             case '$mod':
                 if (!is_array($value)) {
                     throw new InvalidArgumentException('Invalid argument for $mod option must be array');
                 }
 
-                $value = array_keys($value)[0];
-
-                return vsprintf("MOD(`c`.`document` -> '$.%s', %s) = 0", [
+                return vsprintf("MOD(`c`.`document` -> '$.%s', %d) = %d", [
                     $fieldName,
-                    static::jsonEncode($value),
+                    // Remainder
+                    static::jsonEncode($value[0]),
+                    // Divisor
+                    static::jsonEncode($value[1] ?? 0)
                 ]);
 
             // User defined function

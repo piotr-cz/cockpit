@@ -141,20 +141,18 @@ SQL
 
     /**
      * Can test only by checking database via raw connection
-     * Hovewer SQLite doesn't work fine with additional connections (file lock)
+     * However SQLite doesn't work fine with additional connections (file lock)
      * @covers \MongoHybrid\Client::dropCollection
      */
-    public function donotTestDropCollection(): void
+    public function testDropCollection(): void
     {
         static::$storage->dropCollection($this->mockCollectionId);
 
-        $stmt = static::$connection->query(<<<SQL
+        // In MongoLite driver
 
-            SHOW TABLES LIKE '{$this->mockCollectionId}'
-SQL
+        $this->assertTrue(
+            static::$storage->count($this->mockCollectionId) === 0
         );
-
-        $this->assertTrue($stmt->fetchColumn() === false);
     }
 
     /**
@@ -256,14 +254,50 @@ SQL
             count($items) === 2,
             'Failed to find one item via $eq'
         );
+
+        // Following works only on MongoDB driver
+        if (static::$storage->type === 'mongodb') {
+            // Assert $not operator (regex)
+            $items = static::$storage->find($this->mockCollectionId, [
+                'filter' => [
+                    // MongoDB Driver
+                    'content' => ['$not' => new \MongoDB\BSON\Regex('Lorem ipsum')],
+                    // MySQL Driver
+                    // 'content' => ['$not' => 'Lorem ipsum'],
+                ]
+            ]);
+
+            $this->assertTrue(
+                $items[0]['content'] !== 'Lorem ipsum',
+                'Filter with $not operator using expression'
+            );
+
+
+            // Assert $not operator (document)
+            $items = static::$storage->find($this->mockCollectionId, [
+                'filter' => [
+                    'content' => ['$not' => ['$eq' => 'Lorem ipsum']],
+                ]
+            ]);
+
+            $this->assertTrue(
+                $items[0]['content'] !== 'Lorem ipsum',
+                'Filter with $not operator using regex'
+            );
+        }
     }
 
     /**
-     * Test filter callback
+     * Test filter callback (not implemented in MongoDB Driver)
+     * Doesn't work on MongoDB
      * @covers \MongoHybrid\Client::find
      */
     public function testFindFilterCallback()
     {
+        if (static::$storage->type === 'mongodb') {
+            return;
+        }
+
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => function (array $item): bool {
                 return $item['_o'] === 2;
@@ -271,7 +305,8 @@ SQL
         ]);
 
         $this->assertTrue(
-            count($items) && $items[0]['_o'] === 2
+            count($items) && $items[0]['_o'] === 2,
+            'Filter callback'
         );
 
 
@@ -284,7 +319,8 @@ SQL
         ]);
 
         $this->assertTrue(
-            count($items) === 1 && $items[0]['_o'] === 2
+            count($items) === 1 && $items[0]['_o'] === 2,
+            'Filter callback with limit'
         );
 
 
@@ -298,7 +334,8 @@ SQL
         ]);
 
         $this->assertTrue(
-            count($items) === 1 && $items[0]['_o'] === 2
+            count($items) === 1 && $items[0]['_o'] === 2,
+            'Filter callback with limit and skip'
         );
     }
 
@@ -319,10 +356,13 @@ SQL
         $this->assertTrue($items[0]['content'] === 'Etiam tempor');
 
 
-        // Assert $not/ $ne func
+        // Assert $ne func
+        // see https://docs.mongodb.com/manual/reference/operator/query/ne/
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                'content' => ['$not' => 'Etiam tempor'],
+                'content' => [
+                    '$ne' => 'Etiam tempor'
+                ],
             ]
         ]);
 
@@ -330,6 +370,10 @@ SQL
             count($items) && $items[0]['content'] === 'Lorem ipsum',
             'Failed $neq for string'
         );
+
+
+        // Assert $not - MongoDB has different implementation for $not than $ne
+        // see https://docs.mongodb.com/manual/reference/operator/query/not/
 
 
         // Assert $gt func
@@ -372,16 +416,23 @@ SQL
 
 
         // Assert $has func
-        $items = static::$storage->find($this->mockCollectionId, [
-            'filter' => [
-                'array' => ['$has' => 'foo'],
-            ]
-        ]);
+        try {
+            $items = static::$storage->find($this->mockCollectionId, [
+                'filter' => [
+                    'array' => ['$has' => 'foo'],
+                ]
+            ]);
 
-        $this->assertTrue(
-            count($items) && in_array('foo', $items[1]['array']),
-            'Failed $has'
-        );
+            $this->assertTrue(
+                count($items) && in_array('foo', $items[1]['array']),
+                'Failed $has'
+            );
+        // Ignore on not implemented
+        } catch (\MongoDB\Driver\Exception\ServerException $mongoException) {
+            if ($mongoException->getMessage() !== 'unknown operator: $has') {
+                throw $mongoException;
+            }
+        }
 
 
         // Assert $all func
@@ -426,7 +477,7 @@ SQL
         // Assert $mod func
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
-                '_o' => ['$mod' => [2 => null]],
+                '_o' => ['$mod' => [2, 0]],
                 // '_o' => ['$mod' => 2],
             ]
         ]);
@@ -481,24 +532,32 @@ SQL
                 'Failed $fuzzy func'
             );
         } catch (InvalidArgumentException $exception) {
-            // Continue only when exception was thrown due to lack of support in driver
-            // Probably should use custom exception type
             if ($exception->getCode() !== 1) {
                 throw $exception;
+            }
+        } catch (\MongoDB\Driver\Exception\ServerException $mongoException) {
+            if ($mongoException->getMessage() !== 'unknown operator: $fuzzy') {
+                throw $mongoException;
             }
         }
 
         // Assert $text func
-        $items = static::$storage->find($this->mockCollectionId, [
-            'filter' => [
-                'content' => ['$text' => 'Etiam tempo'],
-            ]
-        ]);
+        try {
+            $items = static::$storage->find($this->mockCollectionId, [
+                'filter' => [
+                    'content' => ['$text' => 'Etiam tempo'],
+                ]
+            ]);
 
-        $this->assertTrue(
-            count($items) && strpos($items[0]['content'], 'Etiam tempo') !== false,
-            'Failed $text'
-        );
+            $this->assertTrue(
+                count($items) && strpos($items[0]['content'], 'Etiam tempo') !== false,
+                'Failed $text'
+            );
+        } catch (\MongoDB\Driver\Exception\ServerException $mongoException) {
+            if ($mongoException->getMessage() !== 'unknown operator: $text') {
+                throw $mongoException;
+            }
+        }
     }
 
     /**
@@ -516,7 +575,8 @@ SQL
         ]);
 
         $this->assertTrue(
-            !in_array('content', array_keys($items[0]))
+            !in_array('content', array_keys($items[0])),
+            'Fields without content'
         );
 
         // Keep only
@@ -526,9 +586,13 @@ SQL
             ]
         ]);
 
+        $itemKeys = array_keys($items[0]);
+        $testKeys = ['_id', 'content'];
+
         // Note: id must be available unless it's explicitely blacklisted
         $this->assertTrue(
-            array_keys($items[0]) == ['content', '_id']
+            array_diff($itemKeys, $testKeys) === array_diff($testKeys, $itemKeys),
+            'Fields with only content and _id'
         );
     }
 
