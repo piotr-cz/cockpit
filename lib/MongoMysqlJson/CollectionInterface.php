@@ -35,9 +35,14 @@ interface CollectionInterface
     public function findOne($criteria = null, array $projection = null): ?array;
 
     /**
-     * Insert document(s)
+     * Insert document
      */
     // public function insert(array &$document): bool;
+
+    /**
+     * Insert documents
+     */
+    public function insertMany(array $documents): void;
 
     /**
      * Insert or update depending on $document['_id']

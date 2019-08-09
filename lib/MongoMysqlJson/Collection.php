@@ -114,6 +114,15 @@ SQL
     /**
      * @inheritdoc
      */
+    public function insertMany(array $documents): void
+    {
+        // TODO
+        die('TODO');
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function drop(): bool
     {
         $stmt = $this->connection->prepare(<<<SQL
