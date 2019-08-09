@@ -68,6 +68,7 @@ class Driver implements DriverInterface
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_COLUMN,
             // PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4',
+            // PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false,
         ];
 
         try {
@@ -210,18 +211,20 @@ SQL;
 
         $items = [];
 
-        $position = 0;
+        $cbPosition = 0;
         $itemsCount = 0;
 
         while ($result = $stmt->fetch()) {
             $item = QueryBuilder::jsonDecode($result);
 
             if (is_callable($options['filter'])) {
+                // Evaluate
                 if (!$options['filter']($item)) {
                     continue;
                 }
 
-                if ($position++ < $options['skip']) {
+                // Skip
+                if ($cbPosition++ < $options['skip']) {
                     continue;
                 }
             }
@@ -230,40 +233,10 @@ SQL;
             $items[] = $item;
 
             // Break on limit
-            if (is_callable($options['filter']) && $options['limit'] === $options['limit']) {
+            if (is_callable($options['filter']) && $itemsCount >= $options['limit']) {
                 break;
             }
         }
-
-        /*
-        // Callback filter
-        if (is_callable($options['filter'])) {
-            $index = 0;
-
-            while ($result = $stmt->fetch()) {
-                $item = QueryBuilder::jsonDecode($result);
-
-                // Evaluate criteria, must return boolean
-                if ($options['filter']($item)) {
-                    // Skip
-                    if (!$options['skip'] || $index >= $options['skip']) {
-                        $items[] = $item;
-                    }
-
-                    $index++;
-                }
-
-                // Limit Limit
-                if ($options['limit'] && count($items) >= $options['limit']) {
-                    break;
-                }
-            }
-        } else {
-            foreach ($stmt->fetchAll() as $result) {
-                $items[] = QueryBuilder::jsonDecode($result);
-            }
-        }
-        */
 
         // See \MongoLite\Cursor::getData
         if (!empty($options['fields'])) {

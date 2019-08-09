@@ -236,12 +236,12 @@ class ClientTest extends TestCase
 
     /**
      * Test filter callback (not implemented in MongoDB Driver)
-     * Doesn't work on MongoDB
      *
      * @covers \MongoHybrid\Client::find
      */
     public function testFindFilterCallback()
     {
+        // Doesn't work on MongoDB
         if (static::$storage->type === 'mongodb') {
             return;
         }
@@ -254,7 +254,7 @@ class ClientTest extends TestCase
 
         $this->assertTrue(
             count($items) && $items[0]['_o'] === 2,
-            'Filter callback'
+            'Filter callback: ' . var_export($items->toArray(), true)
         );
 
 
@@ -268,9 +268,8 @@ class ClientTest extends TestCase
 
         $this->assertTrue(
             count($items) === 1 && $items[0]['_o'] === 2,
-            'Filter callback with limit'
+            'Filter callback with limit: ' . var_export($items->toArray(), true)
         );
-
 
         // Test Skip
         $items = static::$storage->find($this->mockCollectionId, [
@@ -283,7 +282,7 @@ class ClientTest extends TestCase
 
         $this->assertTrue(
             count($items) === 1 && $items[0]['_o'] === 2,
-            'Filter callback with limit and skip'
+            'Filter callback with limit and skip: ' . var_export($items->toArray(), true)
         );
     }
 
@@ -423,7 +422,6 @@ class ClientTest extends TestCase
         $items = static::$storage->find($this->mockCollectionId, [
             'filter' => [
                 '_o' => ['$mod' => [2, 0]],
-                // '_o' => ['$mod' => 2],
             ]
         ]);
 

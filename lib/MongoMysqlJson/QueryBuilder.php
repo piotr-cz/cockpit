@@ -5,9 +5,10 @@ use ErrorException;
 use InvalidArgumentException;
 
 /**
- * See MongoLite\Database\UtilArrayQuery
+ * See \MongoLite\Database\UtilArrayQuery
  */
 class QueryBuilder {
+    // Ordering directions
     protected const ORDER_BY_ASC = 1;
     protected const ORDER_BY_DESC = -1;
 
@@ -33,6 +34,7 @@ class QueryBuilder {
 
     /**
      * Build ORDER BY subquery
+     *
      * @param array|null $sorts
      * @return string|null
      */
@@ -58,6 +60,7 @@ class QueryBuilder {
 
     /**
      * Build LIMIT subquery
+     *
      * @param int|null $limit
      * @param int|null $offset
      * @return string|null
@@ -79,6 +82,7 @@ class QueryBuilder {
 
     /**
      * Build WHERE subquery
+     *
      * @param array|null $criteria
      * @return string|null
      */
@@ -97,7 +101,9 @@ class QueryBuilder {
 
     /**
      * Build WHERE segments
-     * See ::buildCondition
+     *
+     * See \MongoLite\Database\UtilArrayQuery::buildCondition
+     *
      * @param array $criteria
      * @param string $concat
      * @return string|null
@@ -149,7 +155,8 @@ class QueryBuilder {
 
     /**
      * Build where segments group
-     * See ::check
+     *
+     * See \MongoLite\Database\UtilArrayQuery::check
      */
     protected function buildWhereSegmentsGroup(string $fieldName, array $conditions): string
     {
@@ -167,7 +174,9 @@ class QueryBuilder {
 
     /**
      * Build single where segment
-     * See ::evaluate
+     *
+     * See \MongoLite\Database\UtilArrayQuery::evaluate
+     *
      * @throws \InvalidArgumentException
      * @throws \ErrorException
      */
@@ -359,6 +368,9 @@ class QueryBuilder {
 
     /**
      * Encode value helper
+     *
+     * @param mixed $value
+     * @return string
      */
     public static function jsonEncode($value): string
     {
@@ -368,6 +380,9 @@ class QueryBuilder {
 
     /**
      * Decode value helper
+     *
+     * @param string $string
+     * @return mixed
      */
     public static function jsonDecode(string $string)
     {
