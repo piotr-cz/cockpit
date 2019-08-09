@@ -25,7 +25,8 @@ class Admin extends \Cockpit\AuthController {
                 'delete' => $this->module('cockpit')->hasaccess('collections', 'delete'),
                 'create' => $this->module('cockpit')->hasaccess('collections', 'create'),
                 'edit' => $this->module('collections')->hasaccess($collection, 'collection_edit'),
-                'entries_create' => $this->module('collections')->hasaccess($collection, 'collection_create')
+                'entries_create' => $this->module('collections')->hasaccess($collection, 'collection_create'),
+                'entries_delete' => $this->module('collections')->hasaccess($collection, 'entries_delete'),
             ];
 
             $collections[] = [
@@ -316,6 +317,27 @@ class Admin extends \Cockpit\AuthController {
 
         if (!$filter) {
             return false;
+        }
+
+        $items = $this->module('collections')->find($collection['name'], ['filter' => $filter]);
+
+        if (count($items)) {
+            
+            $trashItems = [];
+            $time = time();
+            $by = $this->module('cockpit')->getUser('_id');
+
+            foreach ($items as $item) {
+
+                $trashItems[] = [
+                    'collection' => $collection['name'],
+                    'data' => $item,
+                    '_by' => $by,
+                    '_created' => $time
+                ];
+            }
+
+            $this->app->storage->getCollection('collections/_trash')->insertMany($trashItems);
         }
 
         $this->module('collections')->remove($collection['name'], $filter);

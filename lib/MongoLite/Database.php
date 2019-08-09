@@ -348,7 +348,6 @@ class UtilArrayQuery {
                 $r = $a == $b;
                 break;
 
-            case '$not' :
             case '$ne' :
                 $r = $a != $b;
                 break;
@@ -410,7 +409,11 @@ class UtilArrayQuery {
             case '$regex' :
             case '$preg' :
             case '$match' :
+            case '$not':
                 $r = (boolean) @\preg_match(isset($b[0]) && $b[0]=='/' ? $b : '/'.$b.'/iu', $a, $match);
+                if ($func === '$not') {
+                    $r = !$r;
+                }
                 break;
 
             case '$size' :
