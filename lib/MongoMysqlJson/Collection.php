@@ -14,12 +14,6 @@ use \MongoMysqlJson\CollectionInterface;
  */
 class Collection implements CollectionInterface
 {
-    /**
-     * Order by values
-     */
-    protected const ORDER_BY_ASC = 1;
-    protected const ORDER_BY_DESC = -1;
-
     /** @var string - Collection ID */
     protected $id;
 

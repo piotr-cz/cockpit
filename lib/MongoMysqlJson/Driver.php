@@ -136,7 +136,7 @@ class Driver implements DriverInterface
      */
     public function dropCollection(string $collectionId, string $db = null): void
     {
-        die('dropCollection');
+        $this->getCollection($collectionId, $db)->drop();
     }
 
     /**
@@ -144,7 +144,7 @@ class Driver implements DriverInterface
      *
      * @param string $collectionFullId
      */
-    public function handleCollectionDrop($collectionFullId): void
+    public function handleCollectionDrop(string $collectionFullId): void
     {
         // Unset from cache
         unset($this->collections[$collectionFullId]);
@@ -210,6 +210,32 @@ SQL;
 
         $items = [];
 
+        $position = 0;
+        $itemsCount = 0;
+
+        while ($result = $stmt->fetch()) {
+            $item = QueryBuilder::jsonDecode($result);
+
+            if (is_callable($options['filter'])) {
+                if (!$options['filter']($item)) {
+                    continue;
+                }
+
+                if ($position++ < $options['skip']) {
+                    continue;
+                }
+            }
+
+            $itemsCount++;
+            $items[] = $item;
+
+            // Break on limit
+            if (is_callable($options['filter']) && $options['limit'] === $options['limit']) {
+                break;
+            }
+        }
+
+        /*
         // Callback filter
         if (is_callable($options['filter'])) {
             $index = 0;
@@ -237,6 +263,7 @@ SQL;
                 $items[] = QueryBuilder::jsonDecode($result);
             }
         }
+        */
 
         // See \MongoLite\Cursor::getData
         if (!empty($options['fields'])) {
