@@ -1,121 +1,149 @@
 <?php
 namespace MongoMysqlJson;
 
-use \MongoMysqlJson\CollectionInterface;
-
-use \MongoHybrid\ResultSet;
+use MongoHybrid\ResultSet;
 
 /**
- * DB driver interface
+ * Results from Collection::find
+ * Cool if implements \ArrayObject so it would be possible to typecast to array
+ */
+/*
+interface ResultSetInterface
+{
+    public function toArray(): array;
+}
+*/
+
+/**
+ * Driver Inteface used by MongoHybrid\Client
+ *
+ * Notes
+ * - $collectionId = db name + collection name
+ * - methods may be called via MongoHybrid\Client or as a proxy via MmongoHybrid\Client::__call ($app->storage->update
  */
 interface DriverInterface
 {
+    //// Used by MongoHybrid\Client
+
     /**
-     * Get collection by id
+     * Get collection
      *
-     * @param string $collectionId - Collection ID
-     * @param string $db - Database alternative name
-     * @return \MysqlJson\CollectionInterface
+     * @param string name
+     * @param string [$db]
+     * @return CollectionInterface
      */
-    public function getCollection(string $collectionId, string $db = null): CollectionInterface;
+    public function getCollection(string $name, string $db = null): CollectionInterface;
+
+    //// Used by MongoHybrid\Client or as proxy
 
     /**
-     * @deprecated [NOT USED] instead MongoHybrid\Client uses CollectionInterface::drop
+     * Find one document in collection
+     * Used in modules\Cockpit\cli\account\create.php, ...
+     *
+     * @param string $collectionId
+     * @param array|callable [$filter]
+     * @return array|null
      */
-    public function dropCollection(string $collectionId, string $db = null): void;
-
-    //// Wrappers
+    public function findOne(string $collectionId, $filter = []): ?array;
 
     /**
-     * Wrapper around CollectionInterface::find
+     * Find document in collection by it's id
+     * Used in lib\MongoHybrid\ResultSet::hasOne
      *
-     * @deprecated use DriverInterface::getCollection()->find()
+     * @param string $collectionId
+     * @param string $docId
+     * @return array|null
+     */
+    public function findOneById(string $collectionId, string $docId): ?array;
+
+    /**
+     * Save (insert or update) new document into collection
      *
-     * @param string collectionId - Collection ID
-     * @param array $options {
-     *  @var array [$filter] - Filter results by (criteria)
-     *  @var array [$fields] - Array of fields to exclude or include from result document (projection)
-     *                         Limits the fields to return for the matching document.
-     *  @var int [$limit] - Limit
-     *  @var int [$sort] - Sort by keys using dot notation
-     *  @var int [$skip] - Offset
+     * @param string $collectionId - Full collection id
+     * @param array &$doc
+     * @return bool
+     */
+    public function save(string $collectionId, array &$doc): bool;
+
+    /**
+     * Remove documents from collection
+     *
+     * @param string $collectionId
+     * @param array|callable $filter
+     */
+    public function remove(string $collectionId, $filter): bool;
+
+    /**
+     * Insert new document into collection
+     *
+     * @param string $collectionId - Full collection id
+     * @param array &$doc
+     * @return bool
+     */
+    public function insert(string $collectionId, array &$doc): bool;
+
+    /**
+     * Used in modules\Cockpit\cli\import\accounts.php
+     */
+    public function count(string $collectionId, $filter = []): int;
+
+    /**
+     * Drop collection
+     * Cockpit MongoLite implementation is broken
+     *
+     * Used in
+     * - modules\Collections\cli\flush\accounts.php
+     * - modules\Collections\cli\fllush\assets.php
+     * - modules\Collections\cli\flush\collections.php
+     * - modules\Collections\bootstrap.php
+     * - modules\Forms\cli\flush\forms.php
+     * - ...
+     *
+     * @param string $collectionId
+     */
+    public function dropCollection(string $collectionId): bool;
+
+    //// Used as proxy
+
+    /**
+     * Update documents in collection matching filter
+     * Used in modules\Cockpit\module\auth.php
+     *
+     * @param string $collectionId
+     * @param array|callable $filter
+     * @param array  $data
+     */
+    public function update(string $collectionId, $filter, array $data);
+
+    /**
+     * Find documents in collection
+     *
+     * @param string $collectionId
+     * @param array [$options] {
+     *   @var array [$filter]
+     *   @var array [$fields]
+     *   @var array [$sort]
+     *   @var int [$limit]
+     *   @var int [$skip]
      * }
+     * @return ResultSet
      */
     public function find(string $collectionId, array $options = []): ResultSet;
 
     /**
-     * Wrapper around CollectionInterface::findOne
-     *
-     * @deprecated use DriverInterface::getCollection()->findOne()
-     */
-    public function findOne(string $collectionId, $criteria = null, array $projection = []): ?array;
-
-    /**
-     * Used by \MongoHybrid\ResultSet::hasOne
-     */
-    public function findOneById(string $collectionId, string $itemId): ?array;
-
-    /**
-     * May use mutliple items
-     */
-    public function insert(string $collectionId, array &$data): bool;
-
-    /**
-     * Insert or update, depending on $data['_id']
+     * Remove field from collection documents
      *
      * @param string $collectionId
-     * @param array &$data {
-     *   @param string [$id]
-     * }
-     * @return bool
+     * @param string $field
      */
-    public function save(string $collectionId, array &$data): bool;
+    public function removeField(string $collectionId, string $field): void;
 
     /**
-     * Not used directly, only via DriverInterface::save
-     */
-    public function update(string $collectionId, $criteria = null, array $data): bool;
-
-    /**
-     * Remove item
+     * Rename field in collection documents
      *
      * @param string $collectionId
-     * @param array $criteria {
-     *   @var string $_id
-     * }
-     * @return bool
+     * @param string $field
+     * @param string $newField
      */
-    public function remove(string $collectionId, array $criteria): bool;
-
-    /**
-     * Used
-     */
-    public function count(string $collectionId, $criteria = null): int;
-
-    /**
-     * Remove field in collection items (used by CLI)
-     *
-     * @see #504bc559af
-     *
-     * @param string $collectionId
-     * @param string $fieldName
-     * @param array $filter - Filter collections
-     *
-     * @return bool
-     */
-    public function removeField(string $collectionId, string $fieldName, array $filter = []): bool;
-
-    /**
-     * Rename field in collection items (used by CLI)
-     *
-     * @see #76f9054307
-     *
-     * @param string $collectionId
-     * @param string $fieldName
-     * @param string $newfieldName
-     * @param array $filter
-     *
-     * @return bool
-     */
-    public function renameField(string $collectionId, string $fieldName, string $newfieldName, array $filter = []): bool;
+    public function renameField(string $collectionId, string $field, string $newField): void;
 }

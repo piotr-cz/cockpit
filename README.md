@@ -34,30 +34,6 @@
 
   options are not supported (_$minScore_, _$distance_, _$search_)
 
-### No Cursor implementation
-
-This doesn't work:
-
-```php
-$cursor = $app->storage->getCollection('foobar')->find(['_o' => ['$lte' => 0]]);
-
-$results = $cursor
-    ->limit(10)
-    ->sort(['_o' => 1])
-    ->skip(1)
-    ->toArray();
-```
-
-This works:
-
-```php
-$results = $app->storage->find([
-    'filter' => ['_o' => ['$lte' => 0]],
-    'limit'  => 10,
-    'sort'   => ['_o' => 1],
-    'skip'   => 1,
-]);
-```
 
 ## Setup
 

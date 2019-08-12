@@ -47,7 +47,7 @@ class QueryBuilder {
         $sqlOrderBySegments = [];
 
         foreach ($sorts as $fieldName => $direction) {
-            $sqlOrderBySegments[] = vsprintf("`c`.`document` -> '$.%s' %s", [
+            $sqlOrderBySegments[] = vsprintf("`document` -> '$.%s' %s", [
                 $fieldName,
                 $direction === static::ORDER_BY_DESC ? 'DESC' : 'ASC'
             ]);
@@ -130,7 +130,7 @@ class QueryBuilder {
                 // No operator:
                 default:
                     // $not operator in values' key, condition in it's value
-                    if (is_array($value) && array_keys($value) == ['$not']) {
+                    if (is_array($value) && array_keys($value) === ['$not']) {
                         $whereSegments[] = 'NOT ' . is_array($value['$not'])
                             ? $this->buildWhereSegments([$key => $value['$not']])
                             : $this->buildWhereSegmentsGroup($key, ['$regex' => $value['$not']]);
@@ -185,42 +185,42 @@ class QueryBuilder {
         switch ($func) {
             // Equals
             case '$eq':
-                return vsprintf("`c`.`document` -> '$.%s' = %s", [
+                return vsprintf("`document` -> '$.%s' = %s", [
                     $fieldName,
                     static::jsonEncode($value)
                 ]);
 
             // Not equals
             case '$ne' :
-                return vsprintf("`c`.`document` -> '$.%s' <> %s", [
+                return vsprintf("`document` -> '$.%s' <> %s", [
                     $fieldName,
                     static::jsonEncode($value),
                 ]);
 
             // Greater or equals
             case '$gte' :
-                return vsprintf("`c`.`document` -> '$.%s' >= %s", [
+                return vsprintf("`document` -> '$.%s' >= %s", [
                     $fieldName,
                     static::jsonEncode($value),
                 ]);
 
             // Greater
             case '$gt' :
-                return vsprintf("`c`.`document` -> '$.%s' > %s", [
+                return vsprintf("`document` -> '$.%s' > %s", [
                     $fieldName,
                     static::jsonEncode($value),
                 ]);
 
             // Lower or equals
             case '$lte' :
-                return vsprintf("`c`.`document` -> '$.%s' <= %s", [
+                return vsprintf("`document` -> '$.%s' <= %s", [
                     $fieldName,
                     static::jsonEncode($value),
                 ]);
 
             // Lower
             case '$lt' :
-                return vsprintf("`c`.`document` -> '$.%s' < %s", [
+                return vsprintf("`document` -> '$.%s' < %s", [
                     $fieldName,
                     static::jsonEncode($value),
                 ]);
@@ -229,12 +229,12 @@ class QueryBuilder {
             // When db value is an array, this evaluates to false
             // Could use JSON_OVERLAPS but it's MySQL 8+
             case '$in':
-                return vsprintf("`c`.`document` -> '$.%s' IN (%s)", [
+                return vsprintf("`document` -> '$.%s' IN (%s)", [
                     $fieldName,
                     implode(', ', array_map('static::jsonEncode', $value)),
                 ]);
                 /*
-                return vsprintf("JSON_OVERLAPS(`c`.`document` -> '$.%s', %s)", [
+                return vsprintf("JSON_OVERLAPS(`document` -> '$.%s', %s)", [
                     $fieldName,
                     ($this->connectionQuote)(static::jsonEncode($value)),
                 ]);
@@ -243,7 +243,7 @@ class QueryBuilder {
 
             // Not in array
             case '$nin':
-                return vsprintf("`c`.`document` -> '$.%s' NOT IN (%s)", [
+                return vsprintf("`document` -> '$.%s' NOT IN (%s)", [
                     $fieldName,
                     implode(', ', array_map('static::jsonEncode', $value)),
                 ]);
@@ -262,7 +262,7 @@ class QueryBuilder {
                     throw new InvalidArgumentException('Invalid argument for $all option must be array');
                 }
 
-                return vsprintf("JSON_CONTAINS(`c`.`document`, %s, '$.%s')", [
+                return vsprintf("JSON_CONTAINS(`document`, %s, '$.%s')", [
                     ($this->connectionQuote)(static::jsonEncode($value)),
                     $fieldName,
                 ]);
@@ -270,7 +270,7 @@ class QueryBuilder {
             /*
             // Alternative implementation
             case '$all':
-                return = vsprintf("`c`.`document` -> '$.%s' = JSON_ARRAY(%s)", [
+                return = vsprintf("`document` -> '$.%s' = JSON_ARRAY(%s)", [
                     $fieldName,
                     implode(',', array_map('static::jsonEncode', $value)),
                 ]);
@@ -281,7 +281,7 @@ class QueryBuilder {
             case '$preg':
             case '$match':
             case '$regex':
-                return vsprintf("LOWER(`c`.`document` -> '$.%s') REGEXP LOWER(%s)", [
+                return vsprintf("LOWER(`document` -> '$.%s') REGEXP LOWER(%s)", [
                     $fieldName,
                     // Escape \ and trim /
                     static::jsonEncode(trim(str_replace('\\', '\\\\', $value), '/')),
@@ -289,7 +289,7 @@ class QueryBuilder {
 
             // Array size
             case '$size':
-                return vsprintf("JSON_LENGTH(`c`.`document`, '$.%s') = %s", [
+                return vsprintf("JSON_LENGTH(`document`, '$.%s') = %s", [
                     $fieldName,
                     static::jsonEncode($value),
                 ]);
@@ -301,7 +301,7 @@ class QueryBuilder {
                     throw new InvalidArgumentException('Invalid argument for $mod option must be array');
                 }
 
-                return vsprintf("MOD(`c`.`document` -> '$.%s', %d) = %d", [
+                return vsprintf("MOD(`document` -> '$.%s', %d) = %d", [
                     $fieldName,
                     // Remainder
                     static::jsonEncode($value[0]),
@@ -318,7 +318,7 @@ class QueryBuilder {
             // Path exists
             // Warning: doesn't check if key exists
             case '$exists':
-                return vsprintf("`c`.`document` -> '$.%s' %s NULL", [
+                return vsprintf("`document` -> '$.%s' %s NULL", [
                     $fieldName,
                     $value ? 'IS NOT' : 'IS'
                 ]);
@@ -335,7 +335,7 @@ class QueryBuilder {
                     throw new InvalidArgumentException(sprintf('Options for %s function are not suppored by database driver', $func), 1);
                 }
 
-                return vsprintf("`c`.`document` -> '$.%s' LIKE %s", [
+                return vsprintf("`document` -> '$.%s' LIKE %s", [
                     $fieldName,
                     // Escape MySQL placeholders
                     static::jsonEncode('%' . strtr($value, [
@@ -345,7 +345,7 @@ class QueryBuilder {
                 ]);
                 /*
                 // Search in array or string (case sensitive)
-                return = vsprintf("JSON_SEARCH(`c`.`document`, 'one', %s, NULL, '$.%s') IS NOT NULL", [
+                return = vsprintf("JSON_SEARCH(`document`, 'one', %s, NULL, '$.%s') IS NOT NULL", [
                     static::jsonEncode('%' . strtr($value, [
                         '_' => '\\_',
                         '%' => '\\%'

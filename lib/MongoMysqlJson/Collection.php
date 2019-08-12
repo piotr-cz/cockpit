@@ -1,123 +1,189 @@
 <?php
-/**
- * Just use MongoHybrid\ResultSet
- */
 namespace MongoMysqlJson;
 
 use PDO;
 
-use \MongoMysqlJson\DriverInterface;
-use \MongoMysqlJson\CollectionInterface;
+use MongoMysqlJson\ {
+    CollectionInterface,
+    CursorInterface,
+    QueryBuilder,
+    Driver
+};
 
 /**
- * Collection. Not sure why it's required by MongoHybrid\Client
+ * Minimum set of MongoDB\Collection methods requied for Cockpit
+ * @see MongoDB\Collection
  */
 class Collection implements CollectionInterface
 {
-    /** @var string - Collection ID */
-    protected $id;
+    /** @var string Collection name */
+    protected $collectionName;
 
-    /** @var \PDO - connection */
+    /** @var \PDO */
     protected $connection;
 
-    /** @var \MongoMysqlJson\DriverInterface */
+    /** @var \MongoMysqlJson\QueryBuilder */
+    protected $queryBuilder;
+
+    /** @var \MongoMysqlJson\Driver Database driver */
     protected $driver;
 
     /**
      * Constructor
      */
-    public function __construct(string $id, PDO $connection, DriverInterface $driver)
+    public function __construct(string $collectionName, PDO $connection, QueryBuilder $queryBuilder, Driver $driver)
     {
-        $this->id = $id;
+        $this->collectionName = $collectionName;
         $this->connection = $connection;
+        $this->queryBuilder = $queryBuilder;
         $this->driver = $driver;
 
         $this->createIfNotExists();
     }
 
     /**
-     * @inheritdoc
-     *
-     * [NOT USED]
-     * Note: MongoLite\Collection passes only criteria and projection and expects Cursor
-     * TODO: return generator which behaves like \MongoLite\Cusor
+     * Return collection namespace
      */
-    public function find($criteria = null, array $projection = null): array
+    public function __toString(): string
     {
-        return [];
+        return $this->collectionName;
     }
 
     /**
-     * @inheritdoc
+     * Find document
      *
-     * [NOT USED]
+     * @param array|callable
+     * @param array $options {
+     *   @var array [$sort]
+     *   @var int [$limit]
+     *   @var int [$skip]
+     *   @var array [$projection]
+     * }
+     * @return Cursor
+     *
+     * Note: deprecated usage
+     * `$collection->find()->limit(1)`
+     * in favor of
+     * `$collection->find([], ['limit' => 1])`
      */
-    public function findOne($criteria = null, array $projection = null): ?array
+    public function find($filter = [], $options = []): CursorInterface
     {
-        $items = $this->find(array_merge($criteria, [
+        return new Cursor($this->connection, $this->queryBuilder, $this->collectionName, $filter, $options);
+    }
+
+    /**
+     * Find one document
+     *
+     * @param array|callable
+     * @return array|null
+     */
+    public function findOne($filter = [], $options = []): ?array
+    {
+        $results = $this->find($filter, array_merge($options, [
             'limit' => 1
-        ]));
+        ]))->toArray();
 
-        return array_shift($items);
+        return array_shift($results);
     }
 
     /**
-     * @inheritdoc
-     */
-    public function count(array $criteria = null): int
-    {
-        // Using find which is slower
-        $items = $this->find($criteria);
-
-        return count($items);
-
-        /*
-        // TODO: Criteria
-        $sql = <<<SQL
-
-            SELECT
-                COUNT(*)
-            FROM
-                `{$this->id}` AS `c`
-SQL;
-
-        $stmt = $this->connection->prepare($sql);
-        $stmt->execute();
-
-        return (int) $stmt->fetchColumn();
-        */
-    }
-
-    /**
-     * @inheritdoc
+     * Insert new document into collection
      *
-     * [NOT USED]
+     * @param array &$doc
+     * @return bool
      */
-    public function renameCollection(string $newId): bool
+    public function insertOne(array &$doc): bool
     {
+        $doc['_id'] = createMongoDbLikeId();
+
         $stmt = $this->connection->prepare(<<<SQL
 
-            RENAME TABLE
-                `{$this->id}`
-            TO
-                `{$newId}`
+            INSERT INTO
+                `{$this->collectionName}` (`document`)
+
+            VALUES (
+                :data
+            )
 SQL
         );
 
-        $stmt->execute();
-
-        $this->id = $newId;
+        $stmt->execute([':data' => QueryBuilder::jsonEncode($doc)]);
 
         return true;
     }
 
     /**
-     * @inheritdoc
+     * Update documents
+     *
+     * @param array $filter
+     * @param array $data Update to apply to the matched documents
      */
-    public function insertMany(array $documents): void
+    public function updateMany(array $filter = [], array $update): bool
     {
-        // TODO
-        die('TODO');
+        $stmt = $this->connection->prepare(<<<SQL
+
+            UPDATE
+                `{$this->collectionName}`
+
+            SET
+                `document` = :data
+
+            {$this->queryBuilder->buildWhere($filter)}
+SQL
+        );
+
+        $stmt->execute([':data'  => QueryBuilder::jsonEncode($update)]);
+
+        return true;
+    }
+
+    /**
+     * Delete documents
+     *
+     * @param array $filter
+     */
+    public function deleteMany(array $filter = []): bool
+    {
+        $stmt = $this->connection->prepare(<<<SQL
+
+            DELETE FROM
+                `{$this->collectionName}`
+
+            {$this->queryBuilder->buildWhere($filter)}
+SQL
+        );
+
+        $stmt->execute();
+
+        return true;
+    }
+
+    /**
+     * Count documents
+     * @deprecated in MongoDb 1.4 in favor of countDocuments
+     */
+    public function count($filter = []): int
+    {
+        // On user defined function must use find to evaluate each item
+        if (is_callable($filter)) {
+            return iterator_count($this->find($filter));
+        }
+
+        $stmt = $this->connection->prepare(<<<SQL
+
+            SELECT
+                COUNT(`document`)
+
+            FROM
+                `{$this->collectionName}`
+
+            {$this->queryBuilder->buildWhere($filter)}
+SQL
+        );
+
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
     }
 
     /**
@@ -128,13 +194,13 @@ SQL
         $stmt = $this->connection->prepare(<<<SQL
 
             DROP TABLE IF EXISTS
-                `{$this->id}`
+                `{$this->collectionName}`
 SQL
         );
 
         $stmt->execute();
 
-        $this->driver->handleCollectionDrop($this->id);
+        $this->driver->handleCollectionDrop($this->collectionName);
 
         return true;
     }
@@ -146,7 +212,7 @@ SQL
     {
         $stmt = $this->connection->prepare(<<<SQL
 
-            SHOW TABLES LIKE '{$this->id}'
+            SHOW TABLES LIKE '{$this->collectionName}'
 SQL
         );
 
@@ -158,7 +224,7 @@ SQL
 
         $stmt = $this->connection->prepare(<<<SQL
 
-            CREATE TABLE IF NOT EXISTS `{$this->id}` (
+            CREATE TABLE IF NOT EXISTS `{$this->collectionName}` (
                 `id`       INT  NOT NULL AUTO_INCREMENT,
                 `document` JSON NOT NULL,
                 `_id_virtual`       VARCHAR(24) AS (`document` ->> '$._id')                      NOT NULL UNIQUE COMMENT 'Id',
@@ -169,21 +235,36 @@ SQL
 SQL
         );
 
-        /*
-        // keyval (cockpit.memory.sqlite) has different signature
-        if ($this->id === 'cockpit.memory') {
-            $stmt = $this->connection->prepare(<<<SQL
-
-                CREATE TABLE IF NOT EXISTS `{$this->id}` (
-                    `key`    VARCHAR NOT NULL,
-                    `keyval` TEXT        NULL,
-                    UNIQUE KEY (`key`)
-                )
-SQL
-            );
-        }
-        */
-
         $stmt->execute();
+
+        return;
     }
+}
+
+// Copied from MongoLite\Database
+function createMongoDbLikeId() {
+
+    // based on https://gist.github.com/h4cc/9b716dc05869296c1be6
+
+    $timestamp = \microtime(true);
+    $hostname  = \php_uname('n');
+    $processId = \getmypid();
+    $id        = \random_int(10, 1000);
+    $result    = '';
+
+    // Building binary data.
+    $bin = \sprintf(
+        '%s%s%s%s',
+        \pack('N', $timestamp),
+        \substr(md5($hostname), 0, 3),
+        \pack('n', $processId),
+        \substr(\pack('N', $id), 1, 3)
+    );
+
+    // Convert binary to hex.
+    for ($i = 0; $i < 12; $i++) {
+        $result .= \sprintf('%02x', ord($bin[$i]));
+    }
+
+    return $result;
 }

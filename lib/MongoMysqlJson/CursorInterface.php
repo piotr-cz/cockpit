@@ -1,52 +1,14 @@
 <?php
-/**
- * Docblocks from MongoLite\Cursor
- */
 namespace MongoMysqlJson;
 
 /**
- * @see https://docs.mongodb.com/manual/reference/method/js-cursor/
+ * @see https://www.php.net/manual/en/class.mongodb-driver-cursor.php
  */
-interface CursorInterface // extends \Iterator
+interface CursorInterface extends \Traversable
 {
     /**
-     * Constructor
-     * @param CollectionInterface $collection
-     * @param array|callable|null $criteria
-     * @param array $projection
-     */
-    public function __construct(CollectionInterface $collection, $criteria = null, array $projection = null);
-
-    /**
-     * Set limit
-     */
-    public function limit(?int $limit): CursorInterface;
-
-    /**
-     * Set sort fields
-     */
-    public function sort(?array $sorts): CursorInterface;
-
-    /**
-     * Set skip
-     */
-    public function skip(?int $skip): CursorInterface;
-
-    /**
-     * Loop through result set
-     */
-    public function each(callable $callable): CursorInterface;
-
-    /**
-     * Get documents matching criteria
+     * Get documents as an array
+     * @return array
      */
     public function toArray(): array;
-
-    /**
-     * Documents count
-     */
-    public function count(): int;
-
-    //// Iterator implementations
-    // rewind, current, key, next, valid
 }

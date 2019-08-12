@@ -541,6 +541,20 @@ class ClientTest extends TestCase
     }
 
     /**
+     * Test find with sort
+     *
+     * @covers \MongoHybrid\Client::find
+     */
+    public function testFindSort(): void
+    {
+        $items = static::$storage->find($this->mockCollectionId, [
+            'sort' => ['content' => -1],
+        ]);
+
+        $this->assertTrue($items[0]['content'] > $items[1]['content']);
+    }
+
+    /**
      * Test find with limit
      *
      * @covers \MongoHybrid\Client::find
@@ -552,20 +566,6 @@ class ClientTest extends TestCase
         ]);
 
         $this->assertTrue(count($items) === 1);
-    }
-
-    /**
-     * Test find with sort
-     *
-     * @covers \MongoHybrid\Client::find
-     */
-    public function testFindSort(): void
-    {
-        $items = static::$storage->find($this->mockCollectionId, [
-            'sort' => ['content' => 1],
-        ]);
-
-        $this->assertTrue($items[0]['content'] < $items[1]['content']);
     }
 
     /**
@@ -618,7 +618,7 @@ class ClientTest extends TestCase
      * @covers \MongoHybrid\Client::update
      * @covers \MongoHybrid\Client::count
      */
-    public function XXXtestSave(): void
+    public function testSave(): void
     {
         $item = [
             '_o' => 3,
@@ -658,11 +658,12 @@ class ClientTest extends TestCase
     public function testRemove(): void
     {
         $item = $this->mockCollectionItems[0];
+        $filter = ['id' => $item['_id']];
 
-        static::$storage->remove($this->mockCollectionId, $item);
+        static::$storage->remove($this->mockCollectionId, $filter);
 
         $this->assertTrue(
-            static::$storage->count($this->mockCollectionId, ['_id' => $item['_id']]) === 0
+            static::$storage->count($this->mockCollectionId, $filter) === 0
         );
     }
 
@@ -673,9 +674,26 @@ class ClientTest extends TestCase
      */
     public function testCount()
     {
+        // Assert count with no filter
+        $count = static::$storage->count($this->mockCollectionId);
+
         $this->assertTrue(
-            static::$storage->count($this->mockCollectionId) === count($this->mockCollectionItems)
+             $count === count($this->mockCollectionItems)
         );
+
+        // Test count with array filter
+        $count = static::$storage->count($this->mockCollectionId, [
+            'content' => 'Lorem ipsum'
+        ]);
+
+        $this->assertTrue($count === 1);
+
+        // Test count with callable filter
+        $count = static::$storage->count($this->mockCollectionId, function (array $doc): bool {
+            return $doc['content'] === 'Lorem ipsum';
+        });
+
+        $this->assertTrue($count === 1);
     }
 
     /**
