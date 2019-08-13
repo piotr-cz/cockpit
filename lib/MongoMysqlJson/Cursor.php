@@ -3,8 +3,12 @@ namespace MongoMysqlJson;
 
 use PDO;
 
-use Generator;
+use Traversable;
 use IteratorAggregate;
+
+use IteratorIterator;
+use CallbackFilterIterator;
+use LimitIterator;
 
 use MongoMysqlJson\ {
     CursorInterface,
@@ -78,7 +82,7 @@ class Cursor implements IteratorAggregate, CursorInterface
      * @see {@link https://www.php.net/manual/en/class.generator.php}
      * @return \Traversable
      */
-    public function getIterator(): Generator
+    public function getIterator(): Traversable
     {
         $sqlWhere = !is_callable($this->filter) ? $this->queryBuilder->buildWhere($this->filter) : null;
         $sqlOrderBy = $this->queryBuilder->buildOrderBy($this->options['sort']);
@@ -99,41 +103,21 @@ class Cursor implements IteratorAggregate, CursorInterface
 SQL;
 
         $stmt = $this->connection->prepare($sql);
+
+        $stmt->setFetchMode(PDO::FETCH_COLUMN, 0);
         $stmt->execute();
+
+        $it = new MapIterator($stmt, [QueryBuilder::class, 'jsonDecode']);
+
+        if (is_callable($this->filter)) {
+            $it = new CallbackFilterIterator($it, $this->filter);
+            // Note: Rewinding LimitIterator empties it
+            $it = new LimitIterator($it, $this->options['skip'] ?? 0, $this->options['limit'] ?? -1);
+        }
 
         $projection = static::compileProjection($this->options['projection']);
 
-        $docsCount = 0;
-        $callablePosition = 0;
-
-        // Fetch documents
-        while ($result = $stmt->fetch(PDO::FETCH_COLUMN)) {
-            $doc = QueryBuilder::jsonDecode($result);
-
-            if (is_callable($this->filter)) {
-                // Evaluate
-                if (!($this->filter)($doc)) {
-                    continue;
-                }
-
-                if ($callablePosition++ < $this->options['skip']) {
-                    continue;
-                }
-            }
-
-            // Apply projection
-            $doc = static::applyDocumentProjection($doc, $projection);
-
-            $docsCount++;
-            yield $doc;
-
-            // Callable: Stop on limit
-            if (is_callable($this->filter) && $docsCount >= $this->options['limit']) {
-                break;
-            }
-        }
-
-        return;
+        return new MapIterator($it, [static::class, 'applyDocumentProjection'], $projection);
     }
 
     /**
@@ -164,9 +148,9 @@ SQL;
      * }
      * @return array
      */
-    protected static function applyDocumentProjection(array $document, array $projection = null): array
+    public static function applyDocumentProjection(?array $document, array $projection = null): ?array
     {
-        if (empty($projection)) {
+        if (empty($document) || empty($projection)) {
             return $document;
         }
 
@@ -190,5 +174,40 @@ SQL;
         }
 
         return $document;
+    }
+}
+
+/**
+ * Apply callback to every element
+ */
+class MapIterator extends IteratorIterator
+{
+    /** @var callable */
+    protected $callback;
+
+    /** @var array - Callable arguments */
+    protected $args = [];
+
+    /**
+     * Constructor
+     *
+     * @param \Traversable $iterator
+     * @param callable $callback
+     * @param mixed ...$args
+     */
+    public function __construct(Traversable $iterator, callable $callback, ...$args)
+    {
+        parent::__construct($iterator);
+
+        $this->callback = $callback;
+        $this->args = $args;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function current()
+    {
+        return ($this->callback)(parent::current(), ...$this->args);
     }
 }
