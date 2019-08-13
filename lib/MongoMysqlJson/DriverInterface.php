@@ -4,17 +4,6 @@ namespace MongoMysqlJson;
 use MongoHybrid\ResultSet;
 
 /**
- * Results from Collection::find
- * Cool if implements \ArrayObject so it would be possible to typecast to array
- */
-/*
-interface ResultSetInterface
-{
-    public function toArray(): array;
-}
-*/
-
-/**
  * Driver Inteface used by MongoHybrid\Client
  *
  * Notes
@@ -128,7 +117,7 @@ interface DriverInterface
      * }
      * @return ResultSet
      */
-    public function find(string $collectionId, array $options = []): ResultSet;
+    public function find(string $collectionId, array $options = []);
 
     /**
      * Remove field from collection documents

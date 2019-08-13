@@ -145,7 +145,7 @@ class Driver implements DriverInterface
     /**
      * @inheritdoc
      */
-    public function find(string $collectionId, array $criteria = []): ResultSet
+    public function find(string $collectionId, array $criteria = [], bool $returnIterator = false)
     {
         $filter = $criteria['filter'] ?? null;
 
@@ -158,7 +158,11 @@ class Driver implements DriverInterface
 
         $cursor = $this->getCollection($collectionId)->find($filter, $options);
 
-        $docs = $cursor->toArray();
+        if ($returnIterator) {
+            return new ResultIterator($this, $cursor);
+        }
+
+        $docs = array_values($cursor->toArray());
 
         return new ResultSet($this, $docs);
     }

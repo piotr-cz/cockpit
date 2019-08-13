@@ -107,6 +107,17 @@ class ClientTest extends TestCase
         $items = static::$storage->find($this->mockCollectionId);
 
         $this->assertTrue(count($items) > 0);
+
+        // Test iterator
+        if (static::$storage->type === 'mongomysqljson') {
+            $itemsIterator = static::$storage->find($this->mockCollectionId, [], true);
+
+            $this->assertTrue($itemsIterator instanceof \Iterator);
+
+            foreach ($itemsIterator as $index => $doc) {
+                $this->assertTrue($doc == $this->mockCollectionItems[$index]);
+            }
+        }
     }
 
     /**
@@ -125,6 +136,22 @@ class ClientTest extends TestCase
 
         $this->assertTrue(count($items) === 1, 'Failed to find one item via filter');
         $this->assertTrue($items[0]['content'] === 'Etiam tempor');
+
+        // Test iterator
+        if (static::$storage->type === 'mongomysqljson') {
+            $itemsIterator = static::$storage->find($this->mockCollectionId, [
+                'filter' => [
+                    'content' => 'Etiam tempor',
+                ]
+            ], true);
+
+            $itemsIterator->rewind();
+            $item = $itemsIterator->current();
+
+            $this->assertTrue(
+                $item['content'] === 'Etiam tempor'
+            );
+        }
     }
 
     /**
