@@ -22,7 +22,12 @@ use MongoMysqlJson\ {
 class Driver implements DriverInterface
 {
     /** @var string - Min database version */
-    protected const DB_MIN_SERVER_VERSION = '5.7.9';
+    protected const DB_MIN_SERVER_VERSION = [
+        'mysql' => '5.7.9',
+        // 10.9
+        // 'pgsql' => '9.3.25' // '9.2', // 11 for virtual columns
+        'pgsql' => '9.4' // check if table exists
+    ];
 
     /** @type \PDO - Database connection */
     protected $connection;
@@ -49,38 +54,76 @@ class Driver implements DriverInterface
      */
     public function __construct(array $options, array $driverOptions = [])
     {
-        // See https://www.php.net/manual/en/ref.pdo-mysql.connection.php
-        $dsn = vsprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', [
-            $options['host'] ?? 'localhost',
-            $options['port'] ?? null,
-            $options['dbname'],
-            $options['charset'] ?? 'UTF8'
-        ]);
+        $this->type = $options['connection'];
 
         // Using + to keep keys
+        // See https://www.php.net/manual/en/pdo.setattribute.php
         $driverOptions = $driverOptions + [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_COLUMN,
-            // PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4',
-            // PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false,
+            PDO::ATTR_EMULATE_PREPARES => true,
         ];
 
+        switch ($options['connection']) {
+            // See https://www.php.net/manual/en/ref.pdo-mysql.connection.php
+            case 'mysql':
+                $pdoParams = [
+                    vsprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', [
+                        $options['host'] ?? 'localhost',
+                        $options['port'] ?? null,
+                        $options['dbname'],
+                        $options['charset'] ?? 'UTF8'
+                    ]),
+                    $options['username'],
+                    $options['password'],
+                    $driverOptions
+                ];
+
+                $driverOptions = array_merge($driverOptions, [
+                    // Note: Setting sql_mode doesn't work in init command, at least in 5.7.26
+                    PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4;',
+                    PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false,
+                ]);
+
+                break;
+
+            // See https://www.php.net/manual/en/ref.pdo-pgsql.connection.php
+            case 'pgsql':
+                $pdoParams = [
+                    vsprintf('pgsql:host=%s;port=%s;dbname=%s;user=%s;password=%s', [
+                        $options['host'] ?? 'localhost',
+                        $options['port'] ?? null,
+                        $options['dbname'],
+                        $options['username'],
+                        $options['password'],
+                    ]),
+                    null,
+                    null,
+                    $driverOptions
+                ];
+                break;
+
+            default:
+                throw new DriverException(sprintf('Invalid connection %s', $options['connection']));
+
+        }
+
         try {
-            $this->connection = new PDO(
-                $dsn,
-                $options['username'],
-                $options['password'],
-                $driverOptions
-            );
+            $this->connection = new PDO(...$pdoParams);
         // Access denied for user (1045), Unknown database (1049), invalid host
         } catch (PDOException $pdoException) {
             throw new DriverException(sprintf('PDO connection failed: %s', $pdoException->getMessage()), 0, $pdoException);
         }
 
-        // TODO
+        // Set Mysql_mode after connection has started
+        if ($options['connection'] === 'mysql') {
+            // $this->connection->exec("SET sql_mode = (SELECT CONCAT(@@SESSION.sql_mode, ',ANSI_QUOTES'));");
+            $this->connection->exec("SET sql_mode = 'ANSI';");
+        }
+
         $this->assertIsSupported();
 
-        $this->queryBuilder = new QueryBuilder([$this->connection, 'quote']);
+        $this->queryBuilder = new QueryBuilder([$this->connection, 'quote'], $options['connection']);
     }
 
     /**
@@ -90,18 +133,25 @@ class Driver implements DriverInterface
      */
     public function assertIsSupported(): void
     {
+        $pdoDriverName = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME);
+
         // Check for PDO Driver
-        if (!in_array('mysql', PDO::getAvailableDrivers())) {
-            throw new DriverException('pdo_mysql extension not loaded');
+        if (!in_array($pdoDriverName, PDO::getAvailableDrivers())) {
+            throw new DriverException('Pdo extension not loaded');
+        }
+
+        // Check for driver implementation
+        if (!isset(static::DB_MIN_SERVER_VERSION[$pdoDriverName])) {
+            throw new DriverException('Driver %s not implemented', $pdoDriverName);
         }
 
         // Check version
-        $currentMysqlVersion = $this->connection->getAttribute(PDO::ATTR_SERVER_VERSION);
+        $currentVersion = $this->connection->getAttribute(PDO::ATTR_SERVER_VERSION);
 
-        if (!version_compare($currentMysqlVersion, static::DB_MIN_SERVER_VERSION, '>=')) {
+        if (!version_compare($currentVersion, static::DB_MIN_SERVER_VERSION[$pdoDriverName], '>=')) {
             throw new DriverException(vsprintf('Driver requires MySQL version >= %s, got %s', [
-                static::DB_MIN_SERVER_VERSION,
-                $currentMysqlVersion
+                static::DB_MIN_SERVER_VERSION[$pdoDriverName],
+                $currentVersion
             ]));
         }
 

@@ -90,8 +90,6 @@ class ClientTest extends TestCase
     {
         static::$storage->dropCollection($this->mockCollectionId);
 
-        // In MongoLite driver
-
         $this->assertTrue(
             static::$storage->count($this->mockCollectionId) === 0
         );
@@ -134,7 +132,7 @@ class ClientTest extends TestCase
             ]
         ]);
 
-        $this->assertTrue(count($items) === 1, 'Failed to find one item via filter');
+        $this->assertTrue(count($items) === 1, 'Failed to find one item via filter: ' . var_export($items->toArray(), true));
         $this->assertTrue($items[0]['content'] === 'Etiam tempor');
 
         // Test iterator
@@ -327,7 +325,7 @@ class ClientTest extends TestCase
             ]
         ]);
 
-        $this->assertTrue(count($items) === 1, 'Failed to find one otem via $eq');
+        $this->assertTrue(count($items) === 1, 'Failed to find one item via $eq');
         $this->assertTrue($items[0]['content'] === 'Etiam tempor');
 
 
@@ -343,7 +341,7 @@ class ClientTest extends TestCase
 
         $this->assertTrue(
             count($items) && $items[0]['content'] === 'Lorem ipsum',
-            'Failed $neq for string'
+            'Failed $ne for string'
         );
 
 
@@ -441,7 +439,7 @@ class ClientTest extends TestCase
 
         $this->assertTrue(
             count($items) && count($items[0]['array']) == 2,
-            'Failed $size'
+            'Failed $size ' . var_export($items->toArray(), true)
         );
 
 
@@ -454,7 +452,7 @@ class ClientTest extends TestCase
 
         $this->assertTrue(
             count($items) && fmod($items[0]['_o'], 2) == 0,
-            'Failed $mod'
+            'Failed $mod ' . var_export($items->toArray(), true)
         );
 
 
@@ -578,7 +576,10 @@ class ClientTest extends TestCase
             'sort' => ['content' => -1],
         ]);
 
-        $this->assertTrue($items[0]['content'] > $items[1]['content']);
+        $this->assertTrue(
+            count($items) && $items[0]['content'] > $items[1]['content'],
+            'Documents sorted by order: ' . var_export($items, true)
+        );
     }
 
     /**

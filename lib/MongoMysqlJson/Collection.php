@@ -99,7 +99,7 @@ class Collection implements CollectionInterface
         $stmt = $this->connection->prepare(<<<SQL
 
             INSERT INTO
-                `{$this->collectionName}` (`document`)
+                "{$this->collectionName}" ("document")
 
             VALUES (
                 :data
@@ -123,10 +123,10 @@ SQL
         $stmt = $this->connection->prepare(<<<SQL
 
             UPDATE
-                `{$this->collectionName}`
+                "{$this->collectionName}"
 
             SET
-                `document` = :data
+                "document" = :data
 
             {$this->queryBuilder->buildWhere($filter)}
 SQL
@@ -147,7 +147,7 @@ SQL
         $stmt = $this->connection->prepare(<<<SQL
 
             DELETE FROM
-                `{$this->collectionName}`
+                "{$this->collectionName}"
 
             {$this->queryBuilder->buildWhere($filter)}
 SQL
@@ -172,10 +172,10 @@ SQL
         $stmt = $this->connection->prepare(<<<SQL
 
             SELECT
-                COUNT(`document`)
+                COUNT("document")
 
             FROM
-                `{$this->collectionName}`
+                "{$this->collectionName}"
 
             {$this->queryBuilder->buildWhere($filter)}
 SQL
@@ -194,7 +194,7 @@ SQL
         $stmt = $this->connection->prepare(<<<SQL
 
             DROP TABLE IF EXISTS
-                `{$this->collectionName}`
+                "{$this->collectionName}"
 SQL
         );
 
@@ -210,32 +210,18 @@ SQL
      */
     protected function createIfNotExists(): void
     {
-        $stmt = $this->connection->prepare(<<<SQL
-
-            SHOW TABLES LIKE '{$this->collectionName}'
-SQL
-        );
-
-        $stmt->execute();
+        // Check if table exists
+        // TODO: disable it to save query
+        $sql = $this->queryBuilder->buildDoesTableExist($this->collectionName);
+        $stmt = $this->connection->query($sql);
 
         if ($stmt->fetchColumn()) {
             return;
         }
 
-        $stmt = $this->connection->prepare(<<<SQL
-
-            CREATE TABLE IF NOT EXISTS `{$this->collectionName}` (
-                `id`       INT  NOT NULL AUTO_INCREMENT,
-                `document` JSON NOT NULL,
-                `_id_virtual`       VARCHAR(24) AS (`document` ->> '$._id')                      NOT NULL UNIQUE COMMENT 'Id',
-                `_created_virtual`  TIMESTAMP   AS (FROM_UNIXTIME(`document` ->> '$._created'))  NOT NULL        COMMENT 'Created at',
-                `_modified_virtual` TIMESTAMP   AS (FROM_UNIXTIME(`document` ->> '$._modified'))     NULL        COMMENT 'Modified at',
-                PRIMARY KEY (`id`)
-            )
-SQL
-        );
-
-        $stmt->execute();
+        // Create one
+        $sql = $this->queryBuilder->buildCreateTable($this->collectionName);
+        $this->connection->exec($sql);
 
         return;
     }

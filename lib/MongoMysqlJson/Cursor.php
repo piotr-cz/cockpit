@@ -81,6 +81,7 @@ class Cursor implements IteratorAggregate, CursorInterface
      *
      * @see {@link https://www.php.net/manual/en/class.generator.php}
      * @return \Traversable
+     * @throws \PDOException
      */
     public function getIterator(): Traversable
     {
@@ -92,20 +93,28 @@ class Cursor implements IteratorAggregate, CursorInterface
         $sql = <<<SQL
 
             SELECT
-                `document`
+                "document"
 
             FROM
-                `{$this->collectionName}`
+                "{$this->collectionName}"
 
             {$sqlWhere}
             {$sqlOrderBy}
             {$sqlLimit}
 SQL;
 
-        $stmt = $this->connection->prepare($sql);
+        /* Query without parameters (via PDO::prepare) to avoid problems with reserved characters (? and :)
+         * driver option PDO::ATTR_EMULATE_PREPARES must be set to true - see {@link https://bugs.php.net/bug.php?id=74220}
+         * This is fixed in php 7.4-beta.1 {@link https://wiki.php.net/rfc/pdo_escape_placeholders}
+         */
 
-        $stmt->setFetchMode(PDO::FETCH_COLUMN, 0);
-        $stmt->execute();
+        // $stmt = $this->connection->prepare($sql, [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_COLUMN]);
+        // @throws \PDOException: SQLSTATE[HY093]: Invalid parameter number: no parameters were bound  on ATTR_EMULATE_PREPARES true
+        // @throws \PDOException: SQLSTATE[42601]: Syntax error: 7 ERROR:  syntax error at or near "$1"  on ATTR_EMULATE_PREPARES false
+        // $stmt->execute();
+
+        // @throws \PDOException: SQLSTATE[42601]: Syntax error: 7 ERROR:  syntax error at or near "$1"  on ATTR_EMULATE_PREPARES false
+        $stmt = $this->connection->query($sql, PDO::FETCH_COLUMN, 0);
 
         $it = new MapIterator($stmt, [QueryBuilder::class, 'jsonDecode']);
 
