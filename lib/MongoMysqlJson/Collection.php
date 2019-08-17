@@ -210,17 +210,9 @@ SQL
      */
     protected function createIfNotExists(): void
     {
-        // Check if table exists
-        // TODO: disable it to save query
-        $sql = $this->queryBuilder->buildDoesTableExist($this->collectionName);
-        $stmt = $this->connection->query($sql);
-
-        if ($stmt->fetchColumn()) {
-            return;
-        }
-
         // Create one
         $sql = $this->queryBuilder->buildCreateTable($this->collectionName);
+
         $this->connection->exec($sql);
 
         return;

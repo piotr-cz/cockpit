@@ -5,6 +5,8 @@ use InvalidArgumentException;
 
 use PHPUnit\Framework\TestCase;
 
+use MongoHybrid\Client;
+
 /**
  * Test MongoHybrid\Client configured with MySqlJson driver
  */
@@ -53,7 +55,7 @@ class ClientTest extends TestCase
         $databaseConfig = $cockpit['config']['database'];
 
         // Create new storage
-        static::$storage = new \MongoHybrid\Client(
+        static::$storage = new Client(
             $databaseConfig['server'],
             $databaseConfig['options'],
             $databaseConfig['driverOptions']

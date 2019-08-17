@@ -2,6 +2,7 @@
 namespace MongoMysqlJson;
 
 use PDO;
+use PDOException;
 
 use Traversable;
 use IteratorAggregate;
@@ -12,7 +13,8 @@ use LimitIterator;
 
 use MongoMysqlJson\ {
     CursorInterface,
-    QueryBuilder
+    QueryBuilder,
+    DriverException
 };
 
 /**
@@ -103,18 +105,28 @@ class Cursor implements IteratorAggregate, CursorInterface
             {$sqlLimit}
 SQL;
 
-        /* Query without parameters (via PDO::prepare) to avoid problems with reserved characters (? and :)
-         * driver option PDO::ATTR_EMULATE_PREPARES must be set to true - see {@link https://bugs.php.net/bug.php?id=74220}
-         * This is fixed in php 7.4-beta.1 {@link https://wiki.php.net/rfc/pdo_escape_placeholders}
-         */
+        try {
+            /* Query without parameters (via PDO::prepare) to avoid problems with reserved characters (? and :)
+            * driver option PDO::ATTR_EMULATE_PREPARES must be set to true - see {@link https://bugs.php.net/bug.php?id=74220}
+            * This is fixed in php 7.4-beta.1 {@link https://wiki.php.net/rfc/pdo_escape_placeholders}
+            */
 
-        // $stmt = $this->connection->prepare($sql, [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_COLUMN]);
-        // @throws \PDOException: SQLSTATE[HY093]: Invalid parameter number: no parameters were bound  on ATTR_EMULATE_PREPARES true
-        // @throws \PDOException: SQLSTATE[42601]: Syntax error: 7 ERROR:  syntax error at or near "$1"  on ATTR_EMULATE_PREPARES false
-        // $stmt->execute();
+            // $stmt = $this->connection->prepare($sql, [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_COLUMN]);
+            // @throws \PDOException: SQLSTATE[HY093]: Invalid parameter number: no parameters were bound  on ATTR_EMULATE_PREPARES true
+            // @throws \PDOException: SQLSTATE[42601]: Syntax error: 7 ERROR:  syntax error at or near "$1"  on ATTR_EMULATE_PREPARES false
+            // $stmt->execute();
 
-        // @throws \PDOException: SQLSTATE[42601]: Syntax error: 7 ERROR:  syntax error at or near "$1"  on ATTR_EMULATE_PREPARES false
-        $stmt = $this->connection->query($sql, PDO::FETCH_COLUMN, 0);
+            // @throws \PDOException: SQLSTATE[42601]: Syntax error: 7 ERROR:  syntax error at or near "$1"  on ATTR_EMULATE_PREPARES false
+            $stmt = $this->connection->query($sql, PDO::FETCH_COLUMN, 0);
+        } catch (PDOException $pdoException) {
+            // Rethrow exception with query
+            throw new DriverException(
+                sprintf('PDOException while running query %s', $sql),
+                // Some PostgresSQL codes are strings (22P02)
+                (int) $pdoException->getCode(),
+                $pdoException
+            );
+        }
 
         $it = new MapIterator($stmt, [QueryBuilder::class, 'jsonDecode']);
 
@@ -189,7 +201,7 @@ SQL;
 /**
  * Apply callback to every element
  */
-class MapIterator extends IteratorIterator
+class MapIterator extends IteratorIterator implements Traversable
 {
     /** @var callable */
     protected $callback;
