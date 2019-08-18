@@ -5,7 +5,7 @@ namespace MongoSql\Contracts;
 
 use MongoHybrid\ResultSet;
 
-use MongoSQl\Contracts\CollectionInterface;
+use MongoSql\Contracts\CollectionInterface;
 
 /**
  * Driver Interface used by MongoHybrid\Client

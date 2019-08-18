@@ -204,33 +204,6 @@ SQL;
 
     /**
      * @inheritdoc
-     *
-     * Note: PostgreSQL JSON functions generally requires quoted values
-     */
-    public function qv($value, bool $jsonEncode = false): string
-    {
-        // When using #>
-        if ($jsonEncode) {
-            $value = static::jsonEncode($value);
-        }
-
-        // When using #>>
-        // Should quote everything as it's sql ISO/ ANSI standard
-        return parent::qv($value);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function qvs(array $values, bool $jsonEncode = false): string
-    {
-        $jsonEncodeArgs = array_fill(0, count($values), $jsonEncode);
-
-        return implode(', ', array_map([$this, 'qv'], $values, $jsonEncodeArgs));
-    }
-
-    /**
-     * @inheritdoc
      */
     public function qi(string $identifier): string
     {

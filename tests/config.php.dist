@@ -8,8 +8,6 @@ return [
         'server' => 'mongosql',
         'options' => [
             'connection' => 'mysql',
-            'host'       => 'localhost',
-            'port'       => '3306',
             'dbname'     => 'DATABASE_NAME',
             'username'   => 'USER',
             'password'   => 'PASSWORD',

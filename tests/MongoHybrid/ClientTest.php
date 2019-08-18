@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Test\MongoHybrid;
 
 use InvalidArgumentException;
@@ -14,9 +16,6 @@ class ClientTest extends TestCase
 {
     /** @var \MongoHybrid\Client - Storage client */
     protected static $storage;
-
-    /** @var \PDO - PDO Connection */
-    protected static $connection;
 
     /** @var string - Mock collection id pattern */
     protected static $mockCollectionIdPattern = 'collections/test%s';
@@ -50,15 +49,15 @@ class ClientTest extends TestCase
      */
     public static function setUpBeforeClass(): void
     {
-        $cockpit = cockpit();
+        $globalTestConfig = require __DIR__ . '/../config.php';
 
-        $databaseConfig = $cockpit['config']['database'];
+        $databaseConfig = $globalTestConfig['database'];
 
         // Create new storage
         static::$storage = new Client(
             $databaseConfig['server'],
             $databaseConfig['options'],
-            $databaseConfig['driverOptions']
+            $databaseConfig['driverOptions'] ?? []
         );
     }
 
@@ -109,7 +108,7 @@ class ClientTest extends TestCase
         $this->assertTrue(count($items) > 0);
 
         // Test iterator
-        if (static::$storage->type === 'mongomysqljson') {
+        if (static::$storage->type === 'mongosql') {
             $itemsIterator = static::$storage->find($this->mockCollectionId, [], true);
 
             $this->assertTrue($itemsIterator instanceof \Iterator);
@@ -138,7 +137,7 @@ class ClientTest extends TestCase
         $this->assertTrue($items[0]['content'] === 'Etiam tempor');
 
         // Test iterator
-        if (static::$storage->type === 'mongomysqljson') {
+        if (static::$storage->type === 'mongosql') {
             $itemsIterator = static::$storage->find($this->mockCollectionId, [
                 'filter' => [
                     'content' => 'Etiam tempor',

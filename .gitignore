@@ -19,6 +19,7 @@ package-lock.json
 /lib/**/\.travis.yml
 /storage/*.*
 /storage/*/*
+/tests/config.php
 /config/*
 /node_modules
 addons/
