@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace MongoMysqlJson\Driver;
 
@@ -38,7 +39,7 @@ abstract class Driver implements DriverInterface
     /** @var array - Collections cache */
     protected $collections = [];
 
-    /** @var \MongoMysqlJson\QueryBuilder */
+    /** @var \MongoMysqlJson\QueryBuilder\QueryBuilder */
     protected $queryBuilder;
 
     /**

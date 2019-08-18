@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace MongoMysqlJson;
 
 use PDO;
@@ -27,7 +29,7 @@ class Collection implements CollectionInterface
     /** @var \MongoMysqlJson\QueryBuilder\QueryBuilder */
     protected $queryBuilder;
 
-    /** @var \MongoMysqlJson\Driver Database driver */
+    /** @var \MongoMysqlJson\Driver\Driver - Database driver */
     protected $driver;
 
     /**
