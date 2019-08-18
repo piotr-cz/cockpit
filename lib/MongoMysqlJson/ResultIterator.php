@@ -4,7 +4,10 @@ namespace MongoMysqlJson;
 use Traversable;
 use IteratorIterator;
 
-use MongoMysqlJson\DriverInterface;
+use MongoMysqlJson\Contracts\ {
+    DriverInterface,
+    ResultInterface
+};
 
 /**
  * @inheritdoc

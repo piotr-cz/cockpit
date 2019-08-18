@@ -1,5 +1,5 @@
 <?php
-namespace MongoMysqlJson;
+namespace MongoMysqlJson\QueryBuilder;
 
 /**
  * See \MongoLite\Database\UtilArrayQuery

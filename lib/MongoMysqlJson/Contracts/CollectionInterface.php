@@ -1,10 +1,10 @@
 <?php
-namespace MongoMysqlJson;
+namespace MongoMysqlJson\Contracts;
 
 interface CollectionInterface
 {
     /**
-     * @deprecated?
+     * @deprecated
      */
     public function drop(): bool;
 

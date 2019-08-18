@@ -1,5 +1,5 @@
 <?php
-namespace MongoMysqlJson;
+namespace MongoMysqlJson\Contracts;
 
 /**
  * @see https://www.php.net/manual/en/class.mongodb-driver-cursor.php

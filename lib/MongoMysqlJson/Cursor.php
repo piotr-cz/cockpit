@@ -11,11 +11,9 @@ use IteratorIterator;
 use CallbackFilterIterator;
 use LimitIterator;
 
-use MongoMysqlJson\ {
-    CursorInterface,
-    QueryBuilder,
-    DriverException
-};
+use MongoMysqlJson\DriverException;
+use MongoMysqlJson\Contracts\CursorInterface;
+use MongoMysqlJson\QueryBuilder\QueryBuilder;
 
 /**
  * Cursor implementation
@@ -29,7 +27,7 @@ class Cursor implements IteratorAggregate, CursorInterface
     /** @var \PDO */
     protected $connection;
 
-    /** @var \MongoMysqlJson\QueryBuilder */
+    /** @var \MongoMysqlJson\QueryBuilder\QueryBuilder */
     protected $queryBuilder;
 
     /** @var string */

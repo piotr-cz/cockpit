@@ -4,7 +4,7 @@ namespace MongoMysqlJson\QueryBuilder;
 use ErrorException;
 use InvalidArgumentException;
 
-use MongoMysqlJson\QueryBuilder;
+use MongoMysqlJson\QueryBuilder\QueryBuilder;
 
 /**
  * MySQL query builder

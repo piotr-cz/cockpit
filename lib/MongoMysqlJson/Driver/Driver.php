@@ -1,6 +1,6 @@
 <?php
 
-namespace MongoMysqlJson;
+namespace MongoMysqlJson\Driver;
 
 use PDO;
 use PDOException;
@@ -8,10 +8,14 @@ use PDOException;
 use MongoHybrid\ResultSet;
 
 use MongoMysqlJson\ {
-    DriverInterface,
     DriverException,
+    Collection,
+    ResultIterator
+};
+
+use MongoMysqlJson\Contracts\ {
     CollectionInterface,
-    Collection
+    DriverInterface
 };
 
 /**
@@ -46,7 +50,7 @@ abstract class Driver implements DriverInterface
         $fqcn = sprintf('MongoMysqlJson\Driver\%sDriver', ucfirst($options['connection']));
 
         if (!class_exists($fqcn)) {
-            throw new DriverException(sprintf('Connectiion driver %s does not exist', $options['connection']));
+            throw new DriverException(sprintf('Connection driver %s does not exist', $options['connection']));
         }
 
         return new $fqcn($options, $driverOptions);

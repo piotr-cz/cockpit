@@ -3,12 +3,14 @@ namespace MongoMysqlJson;
 
 use PDO;
 
-use MongoMysqlJson\ {
+use MongoMysqlJson\Contracts\ {
     CollectionInterface,
-    CursorInterface,
-    QueryBuilder,
-    Driver
+    CursorInterface
 };
+
+use MongoMysqlJson\Driver\Driver;
+
+use MongoMysqlJson\QueryBuilder\QueryBuilder;
 
 /**
  * Minimum set of MongoDB\Collection methods requied for Cockpit
@@ -22,7 +24,7 @@ class Collection implements CollectionInterface
     /** @var \PDO */
     protected $connection;
 
-    /** @var \MongoMysqlJson\QueryBuilder */
+    /** @var \MongoMysqlJson\QueryBuilder\QueryBuilder */
     protected $queryBuilder;
 
     /** @var \MongoMysqlJson\Driver Database driver */

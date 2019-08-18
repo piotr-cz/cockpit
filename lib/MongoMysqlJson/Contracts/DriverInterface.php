@@ -1,10 +1,12 @@
 <?php
-namespace MongoMysqlJson;
+namespace MongoMysqlJson\Contracts;
 
 use MongoHybrid\ResultSet;
 
+use MongoMysqlJson\Contracts\CollectionInterface;
+
 /**
- * Driver Inteface used by MongoHybrid\Client
+ * Driver Interface used by MongoHybrid\Client
  *
  * Notes
  * - $collectionId = db name + collection name

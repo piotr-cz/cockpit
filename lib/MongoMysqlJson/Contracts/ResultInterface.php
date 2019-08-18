@@ -1,12 +1,10 @@
 <?php
-namespace MongoMysqlJson;
-
-use Traversable;
+namespace MongoMysqlJson\Contracts;
 
 /**
  * Results from Collection::find
  */
-interface ResultInterface extends Traversable
+interface ResultInterface extends \Traversable
 {
     /**
      * Populate each document with related one from given collections

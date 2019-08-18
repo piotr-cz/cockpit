@@ -3,7 +3,7 @@ namespace MongoMysqlJson\Driver;
 
 use PDO;
 
-use MongoMysqlJson\Driver;
+use MongoMysqlJson\Driver\Driver;
 
 use MongoMysqlJson\QueryBuilder\MysqlQueryBuilder;
 
