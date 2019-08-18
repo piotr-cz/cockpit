@@ -1,10 +1,10 @@
-# Cockpit Next - MySQL JSON driver version
+# Cockpit Next - Sql driver version
 
 ## Requirements
 
-- MySQL 5.7.9+
+- MySQL 5.7.9+/ PostgreSQL 9.4
 - PHP 7.1+
-- PHP extensions: *pdo*, *pdo_mysql* and *json*
+- PHP extensions: *pdo*, *pdo_mysql*/ *pdo_pgsql* and *json*
 
 
 ## Differences
@@ -26,11 +26,15 @@
 
   when databse value is an array, evaluates to false
 
-- `$regexp` (implemented via [REGEXP](https://dev.mysql.com/doc/refman/5.7/en/regexp.html) + case insensitive)
+- `$regexp`
+  - MySQL implemented via [REGEXP](https://dev.mysql.com/doc/refman/5.7/en/regexp.html) + case insensitive
+  - PostgreSQL impemeted via [POSIX Regular Expressions](https://www.postgresql.org/docs/9.4/functions-matching.html#FUNCTIONS-POSIX-REGEXP)
 
-  wrapping expression in `//` or adding flags like `/foobar/i` doesn't work, as MySQL Regexp doesn't support flags
+  wrapping expression in `//` or adding flags like `/foobar/i` doesn't work, as MySQL and PosgreSQL Regexp functions don't support flags
 
-- `$text` (implemeted via [LIKE](https://dev.mysql.com/doc/refman/5.7/en/string-comparison-functions.html#operator_like))
+- `$text`
+  - MySQL implemeted via [LIKE](https://dev.mysql.com/doc/refman/5.7/en/string-comparison-functions.html#operator_like)
+  - PostgreSQL implementad via [LIKE](https://www.postgresql.org/docs/9.4/functions-matching.html#FUNCTIONS-LIKE)
 
   options are not supported (_$minScore_, _$distance_, _$search_)
 
@@ -45,6 +49,7 @@ return [
         'server' => 'mongomysqljson',
         // Connection options
         'options' => [
+            'connection' => 'mysql', // 'mysql'|'pgsql'
             'host'     => 'localhost', // Optional, defaults to 'localhost'
             'port'     => '3306' // Optional
             'dbname'   => 'DATABASE_NAME',
@@ -70,6 +75,27 @@ composer global require --dev phpunit/phpunit ^8
 ```
 phpunit
 ```
+
+## Notes
+
+### Drivers
+
+- **MongoHybrid\Mongo**
+  Wrapper for [MongoDB\Client](https://github.com/mongodb/mongo-php-library) package
+  which is Wrapper for [mongodb pecl extension](https://www.php.net/set.mongodb) 2015 which implements legacy [MongoDB driver](https://www.php.net/manual/en/book.mongo.php) API
+
+- **MongoHybrid\Legacy** (removed in #1c5a1f228d)
+  Wrapper for [MongoClient](https://www.php.net/manual/en/class.mongoclient.php)
+
+- **MongoHybrid\MongoLite**
+  SQLite wrapper
+
+Packages:
+[MongoDB driver library](https://github.com/mongodb/mongo-php-library)
+
+PHP Extensions:
+[MongoDB driver](https://www.php.net/manual/en/set.mongodb.php)
+[MongoDB Driver (legacy)](https://www.php.net/manual/en/book.mongo.php)
 
 ___
 
