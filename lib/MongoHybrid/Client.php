@@ -30,8 +30,15 @@ class Client {
             $this->type = 'mongolite';
         }
 
-        if ($server === 'mongomysqljson' && class_exists(\MongoMysqlJson\Driver\Driver::class)) {
-            $this->driver = \MongoMysqlJson\Driver\Driver::create($options, $driverOptions);
+        if ($server === 'mongomysqljson') {
+
+            $fqcn = sprintf('\MongoMysqlJson\Driver\%sDriver', ucfirst($options['connection']));
+
+            if (!class_exists($fqcn)) {
+                throw new \InvalidArgumentException(sprintf('Connection driver %s does not exist', $options['connection']));
+            }
+
+            $this->driver = new $fqcn($options, $driverOptions);
             $this->type = 'mongomysqljson';
         }
     }

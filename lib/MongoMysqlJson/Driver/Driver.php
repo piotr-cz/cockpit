@@ -42,21 +42,6 @@ abstract class Driver implements DriverInterface
     protected $queryBuilder;
 
     /**
-     * Factory
-     */
-    public static function create(array $options, array $driverOptions = []): self
-    {
-        // Build FQCN
-        $fqcn = sprintf('MongoMysqlJson\Driver\%sDriver', ucfirst($options['connection']));
-
-        if (!class_exists($fqcn)) {
-            throw new DriverException(sprintf('Connection driver %s does not exist', $options['connection']));
-        }
-
-        return new $fqcn($options, $driverOptions);
-    }
-
-    /**
      * Constructor
      *
      * @param array $options {
@@ -70,7 +55,7 @@ abstract class Driver implements DriverInterface
      * @param array $driverOptions
      * @throws \MysqlJson\DriverException
      */
-    protected function __construct(array $options, array $driverOptions = [])
+    public function __construct(array $options, array $driverOptions = [])
     {
         // Using + to keep keys
         // See https://www.php.net/manual/en/pdo.setattribute.php
