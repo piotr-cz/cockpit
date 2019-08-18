@@ -1,18 +1,17 @@
 <?php
 declare(strict_types=1);
 
-namespace MongoMysqlJson;
+namespace MongoSql;
 
 use PDO;
 
-use MongoMysqlJson\Contracts\ {
+use MongoSql\Contracts\ {
     CollectionInterface,
     CursorInterface
 };
 
-use MongoMysqlJson\Driver\Driver;
-
-use MongoMysqlJson\QueryBuilder\QueryBuilder;
+use MongoSql\Driver\Driver;
+use MongoSql\QueryBuilder\QueryBuilder;
 
 /**
  * Minimum set of MongoDB\Collection methods requied for Cockpit
@@ -26,10 +25,10 @@ class Collection implements CollectionInterface
     /** @var \PDO */
     protected $connection;
 
-    /** @var \MongoMysqlJson\QueryBuilder\QueryBuilder */
+    /** @var \MongoSql\QueryBuilder\QueryBuilder */
     protected $queryBuilder;
 
-    /** @var \MongoMysqlJson\Driver\Driver - Database driver */
+    /** @var \MongoSql\Driver\Driver - Database driver */
     protected $driver;
 
     /**

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace MongoMysqlJson;
+namespace MongoSql;
 
 use PDO;
 use PDOException;
@@ -13,9 +13,9 @@ use IteratorIterator;
 use CallbackFilterIterator;
 use LimitIterator;
 
-use MongoMysqlJson\DriverException;
-use MongoMysqlJson\Contracts\CursorInterface;
-use MongoMysqlJson\QueryBuilder\QueryBuilder;
+use MongoSql\DriverException;
+use MongoSql\Contracts\CursorInterface;
+use MongoSql\QueryBuilder\QueryBuilder;
 
 /**
  * Cursor implementation
@@ -29,7 +29,7 @@ class Cursor implements IteratorAggregate, CursorInterface
     /** @var \PDO */
     protected $connection;
 
-    /** @var \MongoMysqlJson\QueryBuilder\QueryBuilder */
+    /** @var \MongoSql\QueryBuilder\QueryBuilder */
     protected $queryBuilder;
 
     /** @var string */

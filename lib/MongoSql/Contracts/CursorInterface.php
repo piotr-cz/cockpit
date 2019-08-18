@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace MongoMysqlJson\Contracts;
+namespace MongoSql\Contracts;
 
 /**
  * @see https://www.php.net/manual/en/class.mongodb-driver-cursor.php

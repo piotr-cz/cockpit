@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace MongoMysqlJson\QueryBuilder;
+namespace MongoSql\QueryBuilder;
 
 use ErrorException;
 use InvalidArgumentException;
 
-use MongoMysqlJson\QueryBuilder\QueryBuilder;
+use MongoSql\QueryBuilder\QueryBuilder;
 
 /**
  * PostgreSQL Query builder

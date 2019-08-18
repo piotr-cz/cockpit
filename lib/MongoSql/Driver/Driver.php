@@ -1,20 +1,20 @@
 <?php
 declare(strict_types=1);
 
-namespace MongoMysqlJson\Driver;
+namespace MongoSql\Driver;
 
 use PDO;
 use PDOException;
 
 use MongoHybrid\ResultSet;
 
-use MongoMysqlJson\ {
+use MongoSql\ {
     DriverException,
     Collection,
     ResultIterator
 };
 
-use MongoMysqlJson\Contracts\ {
+use MongoSql\Contracts\ {
     CollectionInterface,
     DriverInterface
 };
@@ -39,7 +39,7 @@ abstract class Driver implements DriverInterface
     /** @var array - Collections cache */
     protected $collections = [];
 
-    /** @var \MongoMysqlJson\QueryBuilder\QueryBuilder */
+    /** @var \MongoSql\QueryBuilder\QueryBuilder */
     protected $queryBuilder;
 
     /**

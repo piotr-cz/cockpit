@@ -1,13 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace MongoMysqlJson\Driver;
+namespace MongoSql\Driver;
 
 use PDO;
 
-use MongoMysqlJson\Driver\Driver;
-
-use MongoMysqlJson\QueryBuilder\PgsqlQueryBuilder;
+use MongoSql\Driver\Driver;
+use MongoSql\QueryBuilder\PgsqlQueryBuilder;
 
 /**
  * PostgreSQL Driver

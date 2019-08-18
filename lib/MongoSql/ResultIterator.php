@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace MongoMysqlJson;
+namespace MongoSql;
 
 use Traversable;
 use IteratorIterator;
 
-use MongoMysqlJson\Contracts\ {
+use MongoSql\Contracts\ {
     DriverInterface,
     ResultInterface
 };
@@ -17,7 +17,7 @@ use MongoMysqlJson\Contracts\ {
  */
 class ResultIterator extends IteratorIterator implements ResultInterface
 {
-    /** @var \MongoMysqlJson\DriverInterface */
+    /** @var \MongoSql\DriverInterface */
     protected $driver;
 
     /** @var array - hasOne relationships */
