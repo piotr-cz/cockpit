@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 use MongoHybrid\Client;
 
 /**
- * Test MongoHybrid\Client configured with MySqlJson driver
+ * Test MongoHybrid\Client configured with driver
  */
 class ClientTest extends TestCase
 {
