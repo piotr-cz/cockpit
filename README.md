@@ -1,5 +1,8 @@
 # Cockpit Next - Sql driver version
 
+**Feature moved to dedicated addon [SQL Driver for Cockpit CMS](https://github.com/piotr-cz/cockpit-sql-driver)**
+___
+
 ## Requirements
 
 - MySQL 5.7.9+/ PostgreSQL 9.4
